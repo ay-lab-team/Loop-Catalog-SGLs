@@ -1,0 +1,107 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=16gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/eqtl/logs/
+#PBS -o results/main/eqtl/logs/
+#PBS -N convert_eqtls_to_washu
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+mkdir -p results/temp
+
+# rule calculate_number_of_eqtls_pre_filtering: # (Status: developing)
+# Count the number of eqtl after filtering with FDR
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/loop_samplesheets/loops.t1d_only.txt"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+loop_source=${run_info[0]}
+
+echo "Using samplesheet: ${samplesheet}"
+IFS=$'\n\t' # can go back to using \n\t
+
+
+# printing log information
+echo "loop_source: $loop_source"
+echo
+
+
+# setting the input paths
+input="results/main/h3k27ac_hichip/${loop_source}/FitHiChIP_S/FitHiChIP.interactions_FitHiC_Q0.01.bed"
+echo "input: ${input} - $(path_exists $input)"
+echo
+
+
+# setting the output paths
+output="results/main/h3k27ac_hichip/${loop_source}/FitHiChIP_S/FitHiChIP.interactions_FitHiC.track.longrange.bed.gz"
+echo "output: ${output} - $(path_exists $output)"
+echo
+
+
+# stop running if output exists
+if [[ -e "${output}" ]]
+then
+    echo "outfn: ${output} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    #exit
+fi
+
+
+# make output directories that are not present 
+mkdir -p $(dirname ${output})
+
+##########################################################################################
+## reformat
+##########################################################################################
+
+echo "# sort the eqtl ss by geneid"
+longrange_bed="results/main/h3k27ac_hichip/${loop_source}/FitHiChIP_S/FitHiChIP.interactions_FitHiC.track.longrange.bed"
+#        | sed "s/^chr//1" \
+#        | sort -k1n -k2n -k3n \
+#        | awk '{print "chr" \$0}' \
+read -r cmd << EOM
+cat ${input} \
+        | sed '1d' \
+        | awk 'BEGIN{OFS="\t"}; {score= -1 * log(\$20)/log(10); right=\$4 ":" \$5 "-" \$6 "," score; print \$1, \$2, \$3, right}' \
+        | $bedtools sort -i - \
+        > ${longrange_bed}
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+# compress and index
+echo "# compress and index"
+cmd="$bgzip -f ${longrange_bed}; "
+cmd+="$tabix -f ${longrange_bed}.gz"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+# end message
+echo "End Job"

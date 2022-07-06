@@ -1,0 +1,150 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=10gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/sgls/logs/
+#PBS -o results/main/sgls/logs/
+#PBS -N sgls_to_washu_longrange
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/sgl_samplesheets/sgl.samplesheet.tsv"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+echo "Using samplesheet: ${samplesheet}"
+gwas_source=${run_info[0]}
+eqtl_source=${run_info[1]}
+ge_source=${run_info[2]}
+loop_source=${run_info[3]}
+IFS=$'\n\t' # can go back to using \n\t
+
+if [[ "$eqtl_source" == "ImmuNexUT" ]]
+then
+    eqtl_db="ImmuNexUT"
+else
+    eqtl_db="eQTL_Catalogue"
+fi
+
+# printing log information
+echo "gwas_source: $gwas_source"
+echo "eqtl_db: $eqtl_db"
+echo "eqtl_source: $eqtl_source"
+echo "ge_source: $ge_source"
+echo "loop_source: $loop_source"
+echo
+
+# setting the input paths
+sgls="results/main/GRCh37/sgls/ldpairs/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/${loop_source}/script_version/master.tsv"
+echo "input.sgls: ${sgls} - $(path_exists $sgls)"
+echo
+
+# setting the output paths
+GL_for_Coloc_and_LD_Script_Version
+echo
+
+# stop running if output exists
+if [[ -e "${outfn}" ]]
+then
+    echo "output.outfn: ${outfn} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+fi
+
+# setting params 
+chr=1 # chr
+start=2 # snp start
+end=3 # snp end
+chrB=1 # same as chr
+startB=87 # gene end
+endB=88 # gene end
+score=60 # loop score
+sid=11 # variant sid
+geneid=12 # geneid
+strand=89 # strand col
+has_loop=21
+
+# make output directories that are not present 
+mkdir -p $(dirname ${outfn})
+
+
+# reorganize and get the columns for bedpe format
+echo "# reorganize and get the columns for bedpe format"
+sgls_bedpe="results/main/GRCh37/sgls/ldpairs/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/${loop_source}/script_version/master.longrange.bedpe"
+read -r cmd << EOM
+sed "s/chr//g" $sgls | \
+    awk 'BEGIN{FS="\t"; OFS="\t"}; {if (\$$has_loop == 1) \
+            print \$$chr, \$$start, \$$end, \$$chrB, \$$startB, \$$endB, -log(\$$score)/log(10), \$$sid ":" \$$geneid, \$$strand};' | \
+    sort -k 1 -k2n -k3n -k4 -k5n -k6 \
+    > $sgls_bedpe
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# convert to longrange
+echo "# convert to longrange"
+washu_interm="results/main/GRCh37/sgls/ldpairs/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/${loop_source}/script_version/master.longrange.bed"
+read -r cmd << EOM
+cat $sgls_bedpe | sed '1d' | python workflow/scripts/utilities/WashU_Converters.py \
+                        --convert-from bedpe \
+                        --convert-to longrange \
+                        --chr 1 \
+                        --start 2  \
+                        --end 3  \
+                        --chrB 4 \
+                        --startB 5  \
+                        --endB 6 \
+                        --score 7 \
+                        --feature 8 \
+                        --strand 9 \
+                        --output-chr-format \
+                        > $washu_interm
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# bgzip + tabix
+echo "# bgzip + tabix"
+cmd="${bgzip} -f ${washu_interm}; $tabix ${washu_interm}.gz"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# remove intermediate files
+#echo "# remove intermediate files"
+cmd="rm $sgls_bedpe"
+echo "Running: ${cmd}"
+echo
+#eval $cmd
+
+
+# end message
+echo "End Job"

@@ -1,0 +1,117 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=20gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/coloc/logs/
+#PBS -o results/main/coloc/logs/
+#PBS -N find_ldpairs_for_coloc_snps
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+# rule calculate_number_of_eqtls_pre_filtering: # (Status: developing)
+# Count the number of eqtl after filtering with FDR
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/coloc_samplesheets/coloc.samplesheet.tsv"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+echo "Using samplesheet: ${samplesheet}"
+gwas_source=${run_info[0]}
+eqtl_source=${run_info[1]}
+ge_source=${run_info[2]}
+IFS=$'\n\t' # can go back to using \n\t
+
+if [[ "$eqtl_source" == "ImmuNexUT" ]]
+then
+    eqtl_db="ImmuNexUT"
+else
+    eqtl_db="eQTL_Catalogue"
+fi
+
+# printing log information
+echo "gwas_source: $gwas_source"
+echo "eqtl_db: $eqtl_db"
+echo "eqtl_source: $eqtl_source"
+echo "ge_source: $ge_source"
+echo
+
+# setting the input paths
+snp_file="results/main/GRCh37/coloc/Results/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
+onekg_dir="/mnt/BioAdHoc/Groups/vd-vijay/Ariel/R24_new/LD-snps-1000G/DupsRemoved/"
+population_dir="/mnt/BioAdHoc/Groups/vd-vijay/Ariel/R24_new/LD-snps/lists-pops/"
+snpinfo_dir="/mnt/BioAdHoc/Groups/vd-vijay/sourya/Projects/2020_IQTL_HiChIP/Data/SNPInfo/SNPInfo_merged_tables/"
+echo "input.snp_file: ${snp_file} - $(path_exists $snp_file)"
+echo "input.onekg_dir: ${onekg_dir} - $(path_exists $onekg_dir)"
+echo "input.population_dir: ${population_dir} - $(path_exists $population_dir)"
+echo "input.snpinfo_dir: ${snpinfo_dir} - $(path_exists $snpinfo_dir)"
+echo
+
+# setting the output paths
+ld="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.txt"
+echo "output.ld: ${ld} - $(path_exists $ld)"
+echo
+
+# stop running if output exists
+if [[ -e "${ld}" ]]
+then
+    echo "ld: ${ld} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+fi
+
+# setting params 
+workdir="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/"
+chr_col=1
+pos_col=2
+
+# make output directories that are not present 
+mkdir -p $(dirname ${ld})
+
+# find ldpairs for coloc snps
+echo "# find ldpairs for coloc snps"
+read -r cmd << EOM
+$hichip_db_Rscript workflow/scripts/ldpairs/ldpair_with_plink.R \
+            --snp-file ${snp_file} \
+            --onekg-dir ${onekg_dir}/ \
+            --population-dir ${population_dir}/ \
+            --snpinfo-dir ${snpinfo_dir}/ \
+            --header \
+            --chr-prefix \
+            --chr-col ${chr_col} \
+            --pos-col ${pos_col} \
+            --workdir ${workdir}
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+# Rename/move ld SNP file"
+echo "# Rename/move ld SNP file"
+old_fn="${workdir}/Out_Merge_LD.txt";
+mv $old_fn ${ld}
+
+# end message
+echo "End Job"

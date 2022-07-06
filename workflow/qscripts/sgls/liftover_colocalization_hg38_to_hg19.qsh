@@ -1,0 +1,112 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=4gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/sgls/logs/
+#PBS -o results/main/sgls/logs/
+#PBS -N liftover_colocalization_hg38_to_hg19
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+# rule calculate_number_of_eqtls_pre_filtering: # (Status: developing)
+# Count the number of eqtl after filtering with FDR
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/coloc_samplesheets/coloc.samplesheet.tsv"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+echo "Using samplesheet: ${samplesheet}"
+gwas_source=${run_info[0]}
+eqtl_source=${run_info[1]}
+ge_source=${run_info[2]}
+IFS=$'\n\t' # can go back to using \n\t
+
+if [[ "$eqtl_source" == "ImmuNexUT" ]]
+then
+    eqtl_db="ImmuNexUT"
+else
+    eqtl_db="eQTL_Catalogue"
+fi
+
+# printing log information
+echo "gwas_source: $gwas_source"
+echo "eqtl_db: $eqtl_db"
+echo "eqtl_source: $eqtl_source"
+echo "ge_source: $ge_source"
+echo
+
+# setting the input paths
+input="results/main/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
+echo "input: ${input} - $(path_exists $input)"
+echo
+
+# setting the output paths
+final="results/main/GRCh37/coloc/Results/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
+echo "output.final: ${final} - $(path_exists $final)"
+echo
+
+# stop running if output exists
+if [[ -e "${final}" ]]
+then
+    echo "final: ${final} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+fi
+
+# setting params 
+if [[ "${eqtl_db}" == "eQTL_Catalogue" ]]
+then
+    chr=1
+    pos=2
+    sep="\t"
+    header="TRUE"
+else
+    chr=1
+    pos=2
+    sep="\t"
+    header="TRUE"
+fi
+
+# make output directories that are not present 
+mkdir -p $(dirname ${final})
+
+# liftover from GRCh38 to GRCh37"
+echo "# liftover from GRCh38 to GRCh37"
+read -r cmd << EOM
+${hichip_db_py} workflow/scripts/utilities/general_liftover.py \
+            -i ${input} \
+            -o ${final} \
+            --chr-col ${chr} \
+            --pos-col ${pos} \
+            --header \
+            --sep "${sep}"
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+# end message
+echo "End Job"

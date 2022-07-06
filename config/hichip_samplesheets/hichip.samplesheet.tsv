@@ -1,0 +1,14 @@
+loop_source	dice_name
+B-cell_naive	NB
+CD4_T-cell_naive	CD4N
+CD8_T-cell_naive	CD8N
+monocyte_naive	CM
+monocyte_nonclassical_naive	NCM
+NK-cell_naive	NK
+Tfh_memory	TFH
+Th1-17_memory	THSTAR
+Th17_memory	TH17
+Th1_memory	TH1
+Th2_memory	TH2
+Treg_memory	TREGMEM
+Treg_naive	TREGNAIVE

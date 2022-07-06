@@ -1,0 +1,20 @@
+# The main snakemake file is used as a hub for sub-snakemake files.
+# To view snakemake commands visit those snakemake files.
+#import os 
+#import glob
+#from pandas import read_table
+#import itertools as it
+
+configfile:'config/config.yaml'
+#report:'report/workflow.rst'
+#
+#wildcard_constraints:
+#    gwas_source = "[A-Za-z0-9\_]"
+
+include: 'rules/wrappers.smk'
+include: 'rules/refs.smk'
+include: 'rules/gwas.smk'
+include: 'rules/coloc.smk'
+include: 'rules/sgls.smk'
+include: 'rules/finemapping.smk'
+include: 'rules/pieqtls.smk'

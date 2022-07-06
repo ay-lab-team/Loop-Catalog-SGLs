@@ -1,0 +1,5 @@
+B-cell_naive
+CD4_T-cell_naive
+CD8_T-cell_naive
+monocyte_naive
+NK-cell_naive

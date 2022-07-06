@@ -1,0 +1,188 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=16gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/gwas/logs/
+#PBS -o results/main/gwas/logs/
+#PBS -N gwas_to_washu_vcf
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+mkdir -p results/temp
+
+# rule calculate_number_of_eqtls_pre_filtering: # (Status: developing)
+# Count the number of eqtl after filtering with FDR
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/gwas_samplesheets/gwas.samplesheet.tsv"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+echo "Using samplesheet: ${samplesheet}"
+gwas_source=${run_info[0]}
+IFS=$'\n\t' # can go back to using \n\t
+
+# printing log information
+echo "gwas_source: $gwas_source"
+echo
+
+# setting the input paths
+input="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.txt"
+onekg="results/refs/ensembl/variation/1000GENOMES-phase_3.vcf.gz"
+echo "input: ${input} - $(path_exists $input)"
+echo "input: ${onekg} - $(path_exists $onekg)"
+echo
+
+# setting the output paths
+outfn="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.vcf.gz"
+echo "output.outfn: ${outfn} - $(path_exists $outfn)"
+echo
+
+# stop running if output exists
+if [[ -e "${outfn}" ]]
+then
+    echo "outfn: ${outfn} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+fi
+
+# make output directories that are not present 
+mkdir -p $(dirname ${outfn})
+
+#########################################################################################
+# filter the onekg
+#########################################################################################
+
+# create bed regions file from input GWAS
+echo "# create bed regions file from input GWAS"
+regions="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.regions.txt"
+read -r cmd << EOM
+sed "1d" \$input \
+    | sed "s/chr//" \
+    | awk 'BEGIN{OFS="\\t"}; {print \$1, \$2}' \
+    > \$regions
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# filter the onekg for Sig GWAS SNPs
+echo "# filter the onekg for Sig GWAS SNPs"
+filtered="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.onekg.vcf.gz"
+cmd="$bcftools view -R $regions --types snps $onekg | $bcftools sort -O z -T results/temp > $filtered"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# index the filtered onekg
+echo "# index the filtered onekg"
+filtered_index="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.onekg.vcf.gz.tbi"
+cmd="$tabix -f $filtered"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+#########################################################################################
+# add GWAS SS info to onekg 
+# this requires using bcftools annotate which requires: 1) a file with VCF info meta data
+# 2) bed file with new annotation fill in bed format and 3) names of the new columns/info
+# which correspond with the bed file from (2).
+#########################################################################################
+
+# create the header 
+echo "# create the header"
+header="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.vcf.header.txt"
+echo "# add the header"
+echo '##INFO=<ID=GWAS_BETA,Number=1,Type=Float,Description="GWAS BETA",Source="GWAS Catalog">' > $header
+echo '##INFO=<ID=GWAS_SE,Number=1,Type=Float,Description="GWAS SE",Source="GWAS Catalog">' >> $header
+echo '##INFO=<ID=GWAS_P,Number=1,Type=Float,Description="GWAS P",Source="GWAS Catalog">' >> $header
+echo '##INFO=<ID=GWAS_N,Number=1,Type=Integer,Description="GWAS N",Source="GWAS Catalog">' >> $header
+
+
+# create the anno bed file
+echo "# create the anno bed file"
+anno="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.anno.bed"
+read -r cmd << EOM
+sed '1d' ${input} \
+    | sed "s/chr//g" \
+    | awk 'BEGIN{OFS="\t"}; {print \$1, \$2 - 1, \$2, \$3, \$4, \$5, \$6};' \
+    | sort -k1n -k2n \
+    >> $anno
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# compress the anno bed
+echo "# compress the anno bed"
+anno_comp="${anno}.gz"
+anno_comp_index="${anno}.gz.tbi"
+read -r cmd << EOM
+$bgzip -f $anno; $tabix -f $anno_comp
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# add anno to the filtered onekb vcf 
+echo "# add anno to the input vcf"
+vcf_wAnno="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.onekg.anno.vcf.gz"
+read -r cmd << EOM
+$bcftools annotate \
+    -O z \
+    -h $header \
+    -a $anno_comp \
+    -c "CHROM,FROM,TO,GWAS_BETA,GWAS_SE,GWAS_P,GWAS_N" \
+    ${filtered} \
+    > $vcf_wAnno
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# bgzip + tabix
+echo "# bgzip + tabix"
+cmd="tabix -f $vcf_wAnno"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# remove intermediate files
+echo "# remove intermediate files"
+cmd="rm $regions $filtered $header $anno_comp $anno_comp_index $filtered_index"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# end message
+echo "End Job"

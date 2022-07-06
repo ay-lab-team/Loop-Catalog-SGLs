@@ -1,0 +1,115 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=16gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/gwas/logs/
+#PBS -o results/main/gwas/logs/
+#PBS -N gwas_to_washu_vcf
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+mkdir -p results/temp
+
+# rule calculate_number_of_eqtls_pre_filtering: # (Status: developing)
+# Count the number of eqtl after filtering with FDR
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/gwas_samplesheets/gwas.samplesheet.tsv"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+echo "Using samplesheet: ${samplesheet}"
+gwas_source=${run_info[0]}
+IFS=$'\n\t' # can go back to using \n\t
+
+# printing log information
+echo "gwas_source: $gwas_source"
+echo
+
+# setting the input paths
+input="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.txt"
+onekg="results/refs/ensembl/variation/1000GENOMES-phase_3.vcf.gz"
+echo "input: ${input} - $(path_exists $input)"
+echo "input: ${onekg} - $(path_exists $onekg)"
+echo
+
+# setting the output paths
+outfn="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.track.refbed.bed.gz"
+echo "output.outfn: ${outfn} - $(path_exists $outfn)"
+echo
+
+# stop running if output exists
+if [[ -e "${outfn}" ]]
+then
+    echo "outfn: ${outfn} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+fi
+
+# make output directories that are not present 
+mkdir -p $(dirname ${outfn})
+
+#########################################################################################
+# add GWAS SS info to onekg 
+# this requires using bcftools annotate which requires: 1) a file with VCF info meta data
+# 2) bed file with new annotation fill in bed format and 3) names of the new columns/info
+# which correspond with the bed file from (2).
+#########################################################################################
+
+# create the anno bed file
+echo "# create the anno bed file"
+vcf="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.track.refbed.bed"
+read -r cmd << EOM
+sed '1d' ${input} \
+    | sed "s/chr//1" \
+    | awk 'BEGIN{OFS="\t"}; {score=-1 * log(\$5)/log(10); \
+                             start=\$2 - 1; \
+                             end=\$2; \
+                             ID="chr" \$1 ":" start "-" end; \
+                             other="Pval=" score ",BETA=" \$3 ",SE=" \$4; \
+                             print \$1, start, end, start, end, "+", ID, ID, "Sig", start, end, other;}' \
+    | sort -k1n -k2n \
+    | awk '{print "chr" \$0}' \
+    >> $vcf
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# compress the vcf bed
+echo "# compress the vcf bed"
+vcf_comp="${vcf}.gz"
+vcf_comp_index="${vcf}.gz.tbi"
+read -r cmd << EOM
+$bgzip -f $vcf; $tabix -f $vcf_comp
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# end message
+echo "End Job"

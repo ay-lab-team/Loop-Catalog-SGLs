@@ -1,0 +1,194 @@
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=4gb
+#PBS -l walltime=100:00:00
+#PBS -e results/main/coloc/logs/
+#PBS -o results/main/coloc/logs/
+#PBS -N raw_colocs_to_washu_longrange
+#PBS -d .
+#PBS -V
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${PBS_ARRAYID+x} ]]
+then
+    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
+    PBS_ARRAYID=$1
+else
+    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+fi
+echo
+
+# load helper functions and paths
+source workflow/qscripts/helper_functions.sh
+
+# start message
+echo "Start Job"
+
+echo "Running script: workflow/qscripts/colocs/raw_colocs_to_washu_longrange.qsh"
+
+# extracting sample information
+IFS=$'\t'
+samplesheet="config/coloc_samplesheets/coloc.samplesheet.tsv"
+run_info=( $(sed -n "${PBS_ARRAYID}p" $samplesheet) )
+echo "Using samplesheet: ${samplesheet}"
+gwas_source=${run_info[0]}
+eqtl_source=${run_info[1]}
+ge_source=${run_info[2]}
+IFS=$'\n\t' # can go back to using \n\t
+
+if [[ "$eqtl_source" == "ImmuNexUT" ]]
+then
+    eqtl_db="ImmuNexUT"
+else
+    eqtl_db="eQTL_Catalogue"
+fi
+
+# printing log information
+echo "gwas_source: $gwas_source"
+echo "eqtl_db: $eqtl_db"
+echo "eqtl_source: $eqtl_source"
+echo "ge_source: $ge_source"
+echo
+
+# setting the input paths
+coloc="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
+gencode="results/refs/gencode/v30/gencode.v30.annotation.grch37.genes_only.bed"
+echo "input.coloc: ${coloc} - $(path_exists $coloc)"
+echo "input.gencode: ${gencode} - $(path_exists $gencode)"
+echo
+
+# setting the output paths
+outfn="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.longrange.bed.gz"
+echo "outfn: ${outfn} - $(path_exists $outfn)"
+echo
+
+# stop running if output exists
+if [[ -e "${outfn}" ]]
+then
+    echo "output.outfn: ${outfn} already exists."
+    echo "Not running the rest of this script."
+
+    # end message
+    echo "End Job: Already Exists"
+    #exit
+fi
+
+# setting params 
+chr=1
+start=2
+end=3
+chrB=4
+startB=5
+endB=6
+score=7
+feature=8
+coloc_geneid_col=10
+gencode_geneid_col=6
+
+# make output directories that are not present 
+mkdir -p $(dirname ${outfn})
+
+
+# sort gencode by geneid before joining
+# assuming there is a header
+echo "# sort gencode by geneid before joining"
+gencode_geneid_sorted="results/refs/gencode/v30/gencode.v30.annotation.grch37.genes_only.geneid_sorted.bed"
+if [[ ! -e "$gencode_geneid_sorted" ]]
+then
+    cmd="sed '1d' $gencode | sort -k $gencode_geneid_col > $gencode_geneid_sorted"
+    echo "Running: ${cmd}"
+    echo
+    eval $cmd
+fi
+
+
+# sort coloc by geneid before joining
+# assuming there is a header
+echo "# sort coloc by geneid before joining"
+coloc_geneid_sorted="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.gene_sorted.tsv"
+read -r cmd << EOM
+sed '1d' $coloc \
+    | awk 'BEGIN{OFS="\t"}; {geneid=gensub(/(ENSG[0-9]*)\.[0-9]*/, "\\\\1", 1, \$$coloc_geneid_col); print geneid, \$0}' \
+    | sort -k 1 \
+    > $coloc_geneid_sorted
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+# add gencode gene data
+echo "# add gencode gene data"
+coloc_wgenes="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.gene_sorted.with_gene_meta.tsv"
+read -r cmd << EOM
+join -1 1 -2 $gencode_geneid_col -t $'\t' $coloc_geneid_sorted $gencode_geneid_sorted > $coloc_wgenes
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+pre_join_nlines=$(wc -l $coloc_geneid_sorted)
+echo "Before joining there were ${pre_join_nlines}."
+
+post_join_nlines=$(wc -l $coloc_wgenes)
+echo "After joining there were ${post_join_nlines}."
+echo
+
+# reorganize and get the columns for bedpe format
+# feature will be the combination of chr, pos and geneid
+echo "# reorganize and get the columns for bedpe format"
+coloc_bedpe="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.gene_sorted.with_gene_meta.bedpe"
+read -r cmd << EOM
+sed "s/chr//g" $coloc_wgenes \
+    | awk 'BEGIN{OFS="\t"}; {feature=\$10 ":" \$32; print \$2, (\$3 - 1), \$3, \$2, \$28, \$29, \$8, feature};' \
+    | sort -k 1 -k2n -k3n -k4 -k5n -k6 \
+    > $coloc_bedpe
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# convert to longrange
+echo "# convert to longrange"
+washu_interm="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.longrange.bed"
+read -r cmd << EOM
+cat $coloc_bedpe | python workflow/scripts/utilities/WashU_Converters.py \
+                        --convert-from bedpe \
+                        --convert-to longrange \
+                        --chr ${chr} \
+                        --start ${start}  \
+                        --end ${end}  \
+                        --chrB ${chrB} \
+                        --startB ${startB}  \
+                        --endB ${endB}  \
+                        --score ${score} \
+                        --feature ${feature} \
+                        --output-chr-format \
+                        > $washu_interm
+EOM
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# bgzip + tabix
+echo "# bgzip + tabix"
+cmd="${bgzip} -f ${washu_interm}; $tabix ${washu_interm}.gz"
+echo "Running: ${cmd}"
+echo
+eval $cmd
+
+
+# remove intermediate files
+#echo "# remove intermediate files"
+cmd="rm $coloc_geneid_sorted $coloc_wgenes $coloc_bedpe"
+echo "Running: ${cmd}"
+echo
+#eval $cmd
+
+# end message
+echo "End Job"
