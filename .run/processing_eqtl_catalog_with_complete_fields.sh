@@ -38,9 +38,17 @@ do
     #else
     #    echo "WARNING: Missing dependencies $dep_fn for $fn"
     #fi
-done < <(cat config/sgl.samplesheet.tsv.v2 | sed '1d' | grep -v "^#" | cut -f 2,3 | sort | uniq | head -n 100)
+done < <(cat config/eqtl_samplesheets/eqtl.t1d_only.txt | sed '1d' | grep -v "^#")
 
-##snakemake --profile workflow/profiles/pbs-torque/ -n $outfiles
-snakemake --profile workflow/profiles/pbs-torque/ $@ $fns
-#snakemake --profile workflow/profiles/local/ $@ $outfiles
-#echo "snakemake --profile workflow/profiles/local/ $@ $outfiles"
+echo $fns
+
+##snakemake --profile workflow/profiles/pbs-torque/ -n $fns
+#snakemake --profile workflow/profiles/pbs-torque/ $@ $fns
+snakemake --profile workflow/profiles/local/ $@ $fns
+#echo "snakemake --profile workflow/profiles/local/ $@ $fns"
+
+
+
+
+
+

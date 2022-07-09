@@ -37,10 +37,10 @@ fns=""
 while IFN= read -r line;
 do
     run_info=($line)
-    fn="results/main/coloc/Results/eQTL_Catalogue/${run_info[0]}/${run_info[1]}/${run_info[2]}/"
+    fn="results/main/coloc/Results/eQTL_Catalogue/${run_info[0]}/${run_info[1]}/${run_info[2]}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
     fns+="$fn "
-
-done < <(sed '1d' config/coloc_samplesheets/t1d.samplesheet.tsv | grep -v "^#" | head -n 100)
+done < <(sed '1d' config/coloc_samplesheets/coloc.samplesheet.tsv | grep -v "^#" | sed -n '4p')
+#done < <(sed '1d' config/coloc_samplesheets/coloc.samplesheet.tsv | grep -v "^#" | head -n 1)
 echo $fns
 
 #outfiles=$(echo $outfiles | cut -d " " -f 4)
@@ -61,5 +61,5 @@ echo $fns
 #fns="results/main/coloc/Results/eQTL_Catalogue/T1D_34012112_Gaulton/Schmiedel_2018/CD8_T-cell_anti-CD3-CD28/"
 
 # FULL Run
-snakemake --profile workflow/profiles/pbs-torque/ $@ $fns
-#snakemake --profile workflow/profiles/local/ $@ $fns
+#snakemake --profile workflow/profiles/pbs-torque/ $@ $fns
+snakemake --profile workflow/profiles/local/ $@ $fns
