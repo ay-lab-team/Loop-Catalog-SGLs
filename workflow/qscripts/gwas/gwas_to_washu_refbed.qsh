@@ -53,7 +53,7 @@ echo "input: ${onekg} - $(path_exists $onekg)"
 echo
 
 # setting the output paths
-outfn="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.vcf.gz"
+outfn="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.track.refbed.bed.gz"
 echo "output.outfn: ${outfn} - $(path_exists $outfn)"
 echo
 
@@ -72,113 +72,40 @@ fi
 mkdir -p $(dirname ${outfn})
 
 #########################################################################################
-# filter the onekg
-#########################################################################################
-
-# create bed regions file from input GWAS
-echo "# create bed regions file from input GWAS"
-regions="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.regions.txt"
-read -r cmd << EOM
-sed "1d" \$input \
-    | sed "s/chr//" \
-    | awk 'BEGIN{OFS="\\t"}; {print \$1, \$2}' \
-    > \$regions
-EOM
-echo "Running: ${cmd}"
-echo
-eval $cmd
-
-
-# filter the onekg for Sig GWAS SNPs
-echo "# filter the onekg for Sig GWAS SNPs"
-filtered="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.onekg.vcf.gz"
-cmd="$bcftools view -R $regions --types snps $onekg | $bcftools sort -O z -T results/temp > $filtered"
-echo "Running: ${cmd}"
-echo
-eval $cmd
-
-
-# index the filtered onekg
-echo "# index the filtered onekg"
-filtered_index="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.onekg.vcf.gz.tbi"
-cmd="$tabix -f $filtered"
-echo "Running: ${cmd}"
-echo
-eval $cmd
-
-
-#########################################################################################
 # add GWAS SS info to onekg 
 # this requires using bcftools annotate which requires: 1) a file with VCF info meta data
 # 2) bed file with new annotation fill in bed format and 3) names of the new columns/info
 # which correspond with the bed file from (2).
 #########################################################################################
 
-# create the header 
-echo "# create the header"
-header="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.vcf.header.txt"
-echo "# add the header"
-echo '##INFO=<ID=GWAS_BETA,Number=1,Type=Float,Description="GWAS BETA",Source="GWAS Catalog">' > $header
-echo '##INFO=<ID=GWAS_SE,Number=1,Type=Float,Description="GWAS SE",Source="GWAS Catalog">' >> $header
-echo '##INFO=<ID=GWAS_P,Number=1,Type=Float,Description="GWAS P",Source="GWAS Catalog">' >> $header
-echo '##INFO=<ID=GWAS_N,Number=1,Type=Integer,Description="GWAS N",Source="GWAS Catalog">' >> $header
-
-
 # create the anno bed file
 echo "# create the anno bed file"
-anno="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.anno.bed"
+vcf="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.track.refbed.bed"
 read -r cmd << EOM
 sed '1d' ${input} \
-    | sed "s/chr//g" \
-    | awk 'BEGIN{OFS="\t"}; {print \$1, \$2 - 1, \$2, \$3, \$4, \$5, \$6};' \
+    | sed "s/chr//1" \
+    | awk 'BEGIN{OFS="\t"}; {score=-1 * log(\$5)/log(10); \
+                             start=\$2 - 1; \
+                             end=\$2; \
+                             ID="chr" \$1 ":" start "-" end; \
+                             other="Pval=" score ",BETA=" \$3 ",SE=" \$4; \
+                             print \$1, start, end, start, end, "+", ID, ID, "Sig", start, end, other;}' \
     | sort -k1n -k2n \
-    >> $anno
+    | awk '{print "chr" \$0}' \
+    >> $vcf
 EOM
 echo "Running: ${cmd}"
 echo
 eval $cmd
 
 
-# compress the anno bed
-echo "# compress the anno bed"
-anno_comp="${anno}.gz"
-anno_comp_index="${anno}.gz.tbi"
+# compress the vcf bed
+echo "# compress the vcf bed"
+vcf_comp="${vcf}.gz"
+vcf_comp_index="${vcf}.gz.tbi"
 read -r cmd << EOM
-$bgzip -f $anno; $tabix -f $anno_comp
+$bgzip -f $vcf; $tabix -f $vcf_comp
 EOM
-echo "Running: ${cmd}"
-echo
-eval $cmd
-
-
-# add anno to the filtered onekb vcf 
-echo "# add anno to the input vcf"
-vcf_wAnno="results/main/gwas/source/${gwas_source}/GRCh37/GWAS_input_colocalization_pval_lt_5eMinus8.onekg.anno.vcf.gz"
-read -r cmd << EOM
-$bcftools annotate \
-    -O z \
-    -h $header \
-    -a $anno_comp \
-    -c "CHROM,FROM,TO,GWAS_BETA,GWAS_SE,GWAS_P,GWAS_N" \
-    ${filtered} \
-    > $vcf_wAnno
-EOM
-echo "Running: ${cmd}"
-echo
-eval $cmd
-
-
-# bgzip + tabix
-echo "# bgzip + tabix"
-cmd="tabix -f $vcf_wAnno"
-echo "Running: ${cmd}"
-echo
-eval $cmd
-
-
-# remove intermediate files
-echo "# remove intermediate files"
-cmd="rm $regions $filtered $header $anno_comp $anno_comp_index $filtered_index"
 echo "Running: ${cmd}"
 echo
 eval $cmd
