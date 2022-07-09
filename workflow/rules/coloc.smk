@@ -237,7 +237,6 @@ rule run_colocalization_eqtl_catalog: #(Status: running)
             # run colocalization command
             # omitting --eqtl-FDR {params.fdr} since eQTL Catalog doesn't have FDR/qvalue
             # Omitting --eqtl-header {params.header} since header was removed previously
-            #Rscript scripts/coloc/Colocalization_Analysis_GWAS_Script_Generalized.R \
             Rscript workflow/scripts/coloc/Colocalization_Analysis_GWAS_Script_Generalized.Sourya_Mod.20220221.R \
                                 --eqtl-chr {params.chr} \
                                 --eqtl-pos {params.pos} \
