@@ -1,17 +1,16 @@
 #!/usr/bin/env Rscript
 # script to calculate LD SNPs for SNPs in a given SNP file
 
-library(argparse)
+library(optparse)
 library(dplyr)
 library(data.table)
 library(ggplot2)
-#options(scipen = 10)
-#options(datatable.fread.datatable=FALSE)
+options(scipen = 10)
+options(datatable.fread.datatable=FALSE)
 
 #########################################################################################
 # PLINK parameters - for LD estimation
 #########################################################################################
-print("# PLINK parameters - for LD estimation")
 population_list <- c('AFR', 'AMR', 'EAS', 'EUR', 'SAS')
 plinkexec <- "/mnt/BioHome/jreyna/software/anaconda3/hichip-db/bin/plink"
 
@@ -27,57 +26,70 @@ LD_WINDOW <- 1000000
 #########################################################################################
 # Commandline interface 
 #########################################################################################
-print("# Commandline interface")
 # meant to replace plink_path <- '/mnt/BioAdHoc/Groups/vd-vijay/Ariel/R24_new/LD-snps-1000G/DupsRemoved/'
 # meant to replace list_pop_path <- '/mnt/BioAdHoc/Groups/vd-vijay/Ariel/R24_new/LD-snps/lists-pops/'
 # meant to replace SNPInfoFile <- \
 # paste0('/mnt/BioAdHoc/Groups/vd-vijay/sourya/Projects/2020_IQTL_HiChIP/Data/SNPInfo/SNPInfo_merged_tables/snpinfo_', currchr, '.txt')
-parser = ArgumentParser()
-parser$add_argument("--snp-file", type="character", default=NULL, help="SNP file.")
-parser$add_argument("--onekg-dir", type="character", default=NULL, help="Directory for the 1000G.")
-parser$add_argument("--population-dir", type="character", default=NULL, help="Directory for the 1000G.")
-parser$add_argument("--snpinfo-dir", type="character", default=NULL, help="Directory for the extra SNP information.")
-parser$add_argument("--header", action="store_true", help="Header columns.")
-parser$add_argument("--chr-col", type="integer", default=NULL, help="Chromosome column.")
-parser$add_argument("--chr-prefix", action="store_true", help="Header columns.")
-parser$add_argument("--pos-col", type="integer", default=NULL, help="Position column.")
-parser$add_argument("--workdir", type="character", default=NULL, help="Work directory.")
-params = parser$parse_args()
-
-
-print(params)
+option_list = list(
+  	make_option(c("--snp-file"), type="character", default=NULL, help="SNP file."),
+  	make_option(c("--onekg-dir"), type="character", default=NULL, help="Directory for the 1000G."),
+  	make_option(c("--population-dir"), type="character", default=NULL, help="Directory for the 1000G."),
+  	make_option(c("--snpinfo-dir"), type="character", default=NULL, help="Directory for the extra SNP information."),
+  	make_option(c("--header"), action="store_true", help="Header columns."),
+  	make_option(c("--chr-col"), type="integer", default=NULL, help="Chromosome column."),
+  	make_option(c("--chr-prefix"), action="store_true", help="Header columns."),
+  	make_option(c("--pos-col"), type="integer", default=NULL, help="Position column."),
+  	make_option(c("--workdir"), type="character", default=NULL, help="Work directory.")
+); 
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
 
 print(sprintf("\n\n**** Commandline Arguments ****"))
-print(paste("snp_file:", params["snp_file"]))
-print(paste("onekg_dir:", params["onekg_dir"]))
-print(paste("population_dir:", params["population_dir"]))
-print(paste("snpinfo_dir:", params["snpinfo_dir"]))
-print(paste("header:", params["header"], typeof(params["header"]), as.vector(params["header"])))
-print(paste("chr_col:", params["chr_col"]))
-print(paste("pos_col:", params["pos_col"]))
-print(paste("workdir:", params$workdir))
+print(paste("snp-file:", opt["snp-file"]))
+print(paste("onekg-dir:", opt["onekg-dir"]))
+print(paste("population-dir:", opt["population-dir"]))
+print(paste("snpinfo-dir:", opt["snpinfo-dir"]))
+
+print(paste("header:", opt["header"], typeof(opt["header"]), as.vector(opt["header"])))
+
+print(paste("chr-col:", opt["chr-col"]))
+print(paste("pos-col:", opt["pos-col"]))
+print(paste("workdir:", opt$workdir))
+opt["chr-col"] = as.numeric(opt["chr-col"])
+opt["pos-col"] = as.numeric(opt["pos-col"])
 
 # make the output directory
-dir.create(params$workdir, showWarnings=F, recursive=T)
+dir.create(opt$workdir, showWarnings=F, recursive=T)
 
 #########################################################################################
 # Loading the SNP datasets 
 #########################################################################################
 print("# Loading the SNP datasets")
 
-snp_data <- data.table::fread(as.character(params["snp_file"]), header=params$header)
+if (opt$header == TRUE){
+    header <- FALSE
+} else {
+    header <- 1
+print(header)
+
+snp_data <- data.table::fread(as.character(opt["snp-file"]), header=opt$header)
 
 #colnames(snp_data) <- c("regionID", "GWASLoci", "index", "rsid", "chr",
 #                        "pos", "allele1", "allele2", "maf", "beta", "se",
 #                        "z", "prob", "log10bf", "mean", "sd", "mean_incl",
 #                        "sd_incl","pval")
-snp_data <- snp_data %>% rename(chr=as.numeric(params["chr_col"]),
-                                pos=as.numeric(params["pos_col"]))
 
-# add "chr" label when not present
-if (!(grepl("chr", snp_data[[1, "chr"]], fixed=TRUE))){
-     snp_data[["chr"]] <- paste0('chr', snp_data[["chr"]])
+print('Done loading')
+
+
+snp_data <- snp_data %>% rename(chr=as.numeric(opt["chr-col"]),
+                                pos=as.numeric(opt["pos-col"]))
+
+if (opt["chr-prefix"] == FALSE){
+    snp_data[,"chr"] <- paste0('chr', snp_data[,"chr"])
 }
+
+#print(head(snp_data))
 
 cat(sprintf("\n\n=====>> Unique number of snps: %s\n", nrow(snp_data)))
 
@@ -87,12 +99,15 @@ cat(sprintf("\n\n=====>> Unique number of snps: %s\n", nrow(snp_data)))
 # This analysis is being done chromosome wise
 print("# Compute the LD")
 
-ChrList <- sort(base::unique(as.vector(snp_data[["chr"]])))
+ChrList <- as.vector(sort(unique(snp_data[, 'chr'])))
 
-cat(sprintf("\n\n====>> List of chromosomes in the snp data: %s ", paste(unique(ChrList), collapse=" ")))
+print('ChrList')
+print(ChrList)
+
+cat(sprintf("\n\n====>> List of chromosomes in the snp data: %s ", paste(ChrList, collapse=" ")))
 
 ## setting the final output file
-Out_Merge_LD_File <- paste0(params$workdir, '/Out_Merge_LD.txt')
+Out_Merge_LD_File <- paste0(opt$workdir, '/Out_Merge_LD.txt')
 if (file.exists(Out_Merge_LD_File)) {
 	system(paste("rm", Out_Merge_LD_File))
 }
@@ -108,16 +123,16 @@ for (chridx in 1:length(ChrList)) {
 	cat(sprintf("\n\nLD for SNPs - considering chromosome : %s ", currchr))
 
 	## setting th 1KG genotype phase information for this chromosome
-	bfileinp <- paste0(as.character(params["onekg_dir"]), currchr, '.1kg.phase3.v5.rsn')
+	bfileinp <- paste0(as.character(opt["onekg-dir"]), currchr, '.1kg.phase3.v5.rsn')
 
 	## SNP information file for this chromosome
-	SNPInfoFile <- paste0(params["snpinfo_dir"], 'snpinfo_', currchr, '.txt')
+	SNPInfoFile <- paste0(opt["snpinfo-dir"], 'snpinfo_', currchr, '.txt')
 	SNPInfoData <- data.table::fread(SNPInfoFile, sep=" ", header=T)
 	SNPInfoData <- SNPInfoData[, c(1,2,4)]
 	colnames(SNPInfoData) <- c('chr', 'pos', 'rsID')
 
 	## snp data for this chromosome
-	snp_data_currchr <- snp_data[which(snp_data[['chr']] == currchr), ]
+	snp_data_currchr <- snp_data[which(snp_data[,'chr'] == currchr), ]
 	print(paste("## snp data for this chromosome - nrow:", nrow(snp_data_currchr)))
 
 	## get the rsID for SNPs from the SNP metadata file
@@ -145,13 +160,13 @@ for (chridx in 1:length(ChrList)) {
 	print("# compute LD SNPs for the SNPs")
 
     # writing the SNP file for plink
-	list_snp_file <- paste0(params$workdir, '/temp_list_SNPs.txt')
+	list_snp_file <- paste0(opt$workdir, '/temp_list_SNPs.txt')
 	write.table(snp_data_currchr_sub, list_snp_file, row.names=F, col.names=F, sep="\t", quote=F, append=F)
 
     # set output and temporary file paths
-	outfileprefix <- paste0(params$workdir, '/temp_snp')
-	out_SNP_from_LD_file <- paste0(params$workdir, '/LD_out_SNP_list.txt')
-	out_SNP_from_LD_file_2 <- paste0(params$workdir, '/LD_out_SNP_list_2.txt')
+	outfileprefix <- paste0(opt$workdir, '/temp_snp')
+	out_SNP_from_LD_file <- paste0(opt$workdir, '/LD_out_SNP_list.txt')
+	out_SNP_from_LD_file_2 <- paste0(opt$workdir, '/LD_out_SNP_list_2.txt')
 	
 	## loop over each population to compute population-specific LD values
 	for (pop_idx in 1:length(population_list)) {
@@ -160,7 +175,7 @@ for (chridx in 1:length(ChrList)) {
 		# apply PLINK to get all the SNPs and their LD with respect to the SNPs in list_snp_file
 		# use cis-eQTL window of 1 Mb		
 		population <- population_list[pop_idx]
-		pop_file <- paste0(params["population_dir"], 'var-super_pop_pop-', population, '.txt')
+		pop_file <- paste0(opt["population-dir"], 'var-super_pop_pop-', population, '.txt')
         cmd = paste0(plinkexec, " --bfile ", bfileinp,
                                 " --keep  ", pop_file,
                                 " --r2 --ld-snp-list ", list_snp_file,

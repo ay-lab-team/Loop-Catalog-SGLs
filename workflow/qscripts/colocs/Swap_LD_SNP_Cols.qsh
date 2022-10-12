@@ -53,20 +53,31 @@ echo "ge_source: $ge_source"
 echo
 
 # setting the input paths
-coloc="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.txt"
+coloc="results/main/GRCh37/coloc/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.txt"
 echo "input.coloc: ${coloc} - $(path_exists $coloc)"
 echo
 
 # setting the output paths
-output="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.swapped_ld_cols.tsv"
+output="results/main/GRCh37/coloc/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.swapped_ld_cols.tsv"
 echo "output: ${output} - $(path_exists $output)"
 echo
+
+# stop running if input does not exist
+if [[ ! -e "${coloc}" ]]
+then
+    echo "input: ${coloc} doesn't exist."
+    echo "Error: Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+fi
 
 # stop running if output exists
 if [[ -e "${output}" ]]
 then
     echo "output: ${output} already exists."
-    echo "Not running the rest of this script."
+    echo "Error: Not running the rest of this script."
 
     # end message
     echo "End Job"
@@ -76,13 +87,14 @@ fi
 # make output directories that are not present 
 mkdir -p $(dirname ${output})
 
-# Note: Currently these codes are very tailored for ImmuNexUT but I want to make them available for eQTL Catalogue data"
-echo "# Note: Currently these codes are very tailored for ImmuNexUT but I want to make them available for eQTL Catalogue data"
+# The columns between the original SNP and the LD SNP have to be swapped for further work with the LD SNPs
+# At this point the eQTL_Catalogue and ImmuNexUT data have the same columns so the swap is as follows:
+# the 27th, 28th, and 30th column with the 1st, 2nd, and 8th column, respectively.
 
 # make the new header and add to the output file 
 echo "# make the new header file"
 read -r cmd << EOM
-head -n 1 ${coloc} | awk 'BEGIN{OFS="\t"}; {print "chr", "pos", \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15, \$16, \$17, \$18, \$19, \$20, \$21, \$22, \$23, \$24, \$25, \$26, "main.chr", "main.pos", \$29, \$30};' > ${output}
+head -n 1 ${coloc} | awk 'BEGIN{OFS="\t"}; {print "chr", "pos", \$3, \$4, \$5, \$6, \$7, \$29, \$9, \$10, \$11, \$12, \$13, \$14, \$15, \$16, \$17, \$18, \$19, \$20, \$21, \$22, \$23, \$24, \$25, \$26, "main.chr", "main.pos", \$8, \$30};' > ${output}
 EOM
 echo "Running: ${cmd}"
 echo
@@ -91,7 +103,7 @@ eval $cmd
 # Swap LD SNP cols with the original SNP cols
 echo "# Swap LD SNP cols with the original SNP cols"
 read -r cmd << EOM
-sed '1d' ${coloc} | awk 'BEGIN{OFS="\t"}; {print \$27, \$28, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12, \$13, \$14, \$15, \$16, \$17, \$18, \$19, \$20, \$21, \$22, \$23, \$24, \$25, \$26, \$1, \$2, \$29, \$30};' >> ${output}
+sed '1d' ${coloc} | awk 'BEGIN{OFS="\t"}; {print \$27, \$28, \$3, \$4, \$5, \$6, \$7, \$29, \$9, \$10, \$11, \$12, \$13, \$14, \$15, \$16, \$17, \$18, \$19, \$20, \$21, \$22, \$23, \$24, \$25, \$26, \$1, \$2, \$8, \$30};' >> ${output}
 EOM
 echo "Running: ${cmd}"
 echo

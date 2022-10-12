@@ -56,7 +56,7 @@ echo
 
 # setting the input paths
 eqtl="results/main/GRCh37/eqtl/${eqtl_db}/${eqtl_source}/${ge_source}/eqtls.full_ss.GRCh37.tsv.gz"
-coloc="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.txt"
+coloc="results/main/GRCh37/coloc/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.swapped_ld_cols.tsv"
 loops="results/main/h3k27ac_hichip/${loop_source}/FitHiChIP_S/FitHiChIP.interactions_FitHiC_Q0.01.bed"
 genome_sizes="results/refs/hg19/hg19.chrom.sizes"
 gencode="results/refs/gencode/v30/gencode.v30.annotation.grch37.bed"
@@ -71,6 +71,39 @@ echo
 outdir="results/main/GRCh37/sgls/ldpairs/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/${loop_source}/full_eqtl_ss/"
 echo "outdir: ${outdir} - $(path_exists $outdir)"
 echo
+
+# check for missing input files
+input_list=($eqtl $coloc $loops $genome_sizes $gencode)
+missing_list=""
+num_missing="0"
+for fn in ${input_list[@]};
+do
+    if ! [[ -e "${fn}" ]];
+    then
+        echo "input: ${fn} does not exist."
+        missing_list+=" $fn"
+        num_missing=$(expr "$num_missing + 1")
+    fi
+done
+
+# stop running if some input is missing
+if [[ $num_missing -gt 0 ]];
+then
+    echo "Missing the following files:"
+    for fn in $missing_list;
+    do
+            echo "$fn"
+    done
+
+    echo "Error: Not running the rest of this script."
+
+    # end message
+    echo "End Job"
+    exit
+else
+    echo "Input files are complete. Will continue running."
+fi
+
 
 # stop running if output exists
 if [[ -e "${outdir}" ]]
@@ -111,6 +144,7 @@ ${hichip_db_py} workflow/scripts/sgls/Find_SGLs.Generalized.py \
                 --eqtl-fdr 7 \
                 --coloc-chr 1 \
                 --coloc-pos 2 \
+                --coloc-rsid 8 \
                 --coloc-gid 10 \
                 --loop-chrA 1 \
                 --loop-startA 2 \
@@ -140,6 +174,7 @@ ${hichip_db_py} workflow/scripts/sgls/Find_SGLs.Generalized.py \
                 --eqtl-fdr 21 \
                 --coloc-chr 1 \
                 --coloc-pos 2 \
+                --coloc-rsid 8 \
                 --coloc-gid 10 \
                 --loop-chrA 1 \
                 --loop-startA 2 \

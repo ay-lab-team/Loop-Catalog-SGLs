@@ -56,7 +56,7 @@ echo "ge_source: $ge_source"
 echo
 
 # setting the input paths
-snp_file="results/main/GRCh37/coloc/Results/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
+snp_file="results/main/GRCh37/coloc/Results/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/FINAL_Summary_Coloc_Gene_SNP_Pairs.bed"
 onekg_dir="/mnt/BioAdHoc/Groups/vd-vijay/Ariel/R24_new/LD-snps-1000G/DupsRemoved/"
 population_dir="/mnt/BioAdHoc/Groups/vd-vijay/Ariel/R24_new/LD-snps/lists-pops/"
 snpinfo_dir="/mnt/BioAdHoc/Groups/vd-vijay/sourya/Projects/2020_IQTL_HiChIP/Data/SNPInfo/SNPInfo_merged_tables/"
@@ -67,7 +67,7 @@ echo "input.snpinfo_dir: ${snpinfo_dir} - $(path_exists $snpinfo_dir)"
 echo
 
 # setting the output paths
-ld="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.txt"
+ld="results/main/GRCh37/coloc/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/coloc_ld_snps.txt"
 echo "output.ld: ${ld} - $(path_exists $ld)"
 echo
 
@@ -83,7 +83,7 @@ then
 fi
 
 # setting params 
-workdir="results/main/GRCh37/coloc/eQTL_Catalogue/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/"
+workdir="results/main/GRCh37/coloc/${eqtl_db}/${gwas_source}/${eqtl_source}/${ge_source}/ldpairs/"
 chr_col=1
 pos_col=2
 

@@ -8,8 +8,10 @@ import numpy as np
 import subprocess as sp
 import json
 import argparse
+import gzip
+import csv
 from itertools import chain
-pbt.helpers.set_tempdir('/mnt/BioHome/jreyna/tmp/')
+pbt.helpers.set_tempdir('/mnt/hpcscratch/jreyna/')
 pbt.set_bedtools_path('/mnt/BioApps/bedtools/bin/')
 bgzip = '/mnt/BioApps/tabix/tabix-0.2.6/bgzip'
 tabix = '/mnt/BioApps/tabix/tabix-0.2.6/tabix'
@@ -46,6 +48,7 @@ parser.add_argument('--eqtl-prefix', type=str, default='eqtl')
 # argumnts to extract the correct fields from the coloc table
 parser.add_argument('--coloc-chr', type=int, default=1)
 parser.add_argument('--coloc-pos', type=int, default=2)
+parser.add_argument('--coloc-rsid', type=int, default=8)
 parser.add_argument('--coloc-gid', type=int, required=True)
 parser.add_argument('--coloc-prefix', type=str, default='coloc')
 
@@ -99,6 +102,7 @@ if debug == True:
     params = parser.parse_args(debug)
     
     params.eqtls = 'results/main/GRCh37/sgls/ImmuNexUT/T1D_34012112_Gaulton/ImmuNexUT/DN_B/eqtls.coloc_filtered.tsv.gz'
+
     params.colocs = 'results/main/GRCh37/coloc/eQTL_Catalogue/T1D_34012112_Gaulton/ImmuNexUT/DN_B/ldpairs/coloc_ld_snps.txt'
     params.loops = 'results/main/h3k27ac_hichip/CD8_T-cell_naive/FitHiChIP_S/FitHiChIP.interactions_FitHiC_Q0.01.bed'
     params.gs = 'results/refs/hg19/hg19.chrom.sizes'
@@ -128,7 +132,7 @@ def get_compliment_cols(curr_col_idxs, full_idxs):
 # convert from 1-based to 0-based indexing and
 # store the indexes in lists
 eqtl_cols = ['eqtl-chr', 'eqtl-pos', 'eqtl-geneid', 'eqtl-beta', 'eqtl-pvalue', 'eqtl-fdr', 'eqtl-dist']
-coloc_cols = ['coloc-chr', 'coloc-pos', 'coloc-gid']
+coloc_cols = ['coloc-chr', 'coloc-pos', 'coloc-rsid', 'coloc-gid']
 loop_cols = ['loop-chrA', 'loop-startA', 'loop-endA', 'loop-chrB', 'loop-startB', 'loop-endB', 'loop-score'] 
 
 eqtl_cols_indices = []
@@ -149,8 +153,11 @@ for k in loop_cols:
 # # Load the colocalization data
 coloc = pd.read_table(params.colocs)
 
-# ensuring geneid column is properly names
+# ensuring geneid column is properly named
 coloc.rename(columns={coloc.columns[params.coloc_gid]: 'geneid'}, inplace=True)
+
+# ensuring rsid column is properly named
+coloc.rename(columns={coloc.columns[params.coloc_rsid]: 'sgl.rsid'}, inplace=True)
 
 # make sure gene IDs are not versioned
 coloc.iloc[:, params.coloc_gid] = coloc.iloc[:, params.coloc_gid].str.replace('.[0-9]*$', '', regex=True)
@@ -171,24 +178,26 @@ coloc = coloc.iloc[:, coloc_cols_indices + other_coloc_cols_indices]
 coloc_sig_df = coloc.loc[~coloc.duplicated(subset=['sid', 'geneid'])]
 
 # keeping a copy of this coloc_sig_df
+print('# keeping a copy of this coloc_sig_df')
 coloc_sig_full = coloc_sig_df.copy(deep=True)
 
 # make a coloc pybed tools object
+print('# make a coloc pybed tools object')
 coloc_sig_df.rename(columns={'pos': 'end'}, inplace=True)
 coloc_sig_df.loc[:, 'start'] = coloc_sig_df.loc[:, 'end'] - 1
-coloc_sig_df = coloc_sig_df[['chr', 'start', 'end', 'sid']]
-coloc_sig_pbt = pbt.BedTool.from_dataframe(coloc_sig_df.iloc[:, 0:4]).sort()
+coloc_sig_df = coloc_sig_df[['chr', 'start', 'end', 'sid', 'sgl.rsid']]
+coloc_sig_pbt = pbt.BedTool.from_dataframe(coloc_sig_df).sort()
 
 print('There are {} colocalized SNP-gene pairs'.format(coloc_sig_df.shape[0]))
 
 # # Load the gencode coords
 # Load the gene data
 print('# Load the gene data')
-
-cols = ['chrom', 'start', 'end', 'strand', 'type', 'geneid', 'genename']
+cols = ['chrom', 'start', 'end', 'strand', 'type', 'geneid', 'genename', 'subtype']
 gencode = pd.read_table(params.gene_ref, header=None, names=cols)
 
 # extract just the genes
+print('# extract just the genes')
 genes_df = gencode.loc[gencode.type.isin(['gene'])]
 genes_df = genes_df.loc[~genes_df.duplicated(subset='geneid'), :]
 genes_df.loc[:, 'chrom'] = genes_df['chrom'].astype(str)
@@ -200,13 +209,14 @@ orig_genes_df = genes_df.copy()
 # convert the start/end position into start/end for the TSS
 # if the gene is + then the start is uses as the tss otherwise
 # the end is used as the tss
+print('# convert the start/end position into start/end for the TSS')
 genes_df.loc[(genes_df.strand == '+'), 'end'] = genes_df.loc[(genes_df.strand == '+'), 'start']
 genes_df.loc[(genes_df.strand == '+'), 'start'] = genes_df.loc[(genes_df.strand == '+'), 'start'] - 1
 genes_df.loc[(genes_df.strand == '-'), 'end'] = genes_df.loc[(genes_df.strand == '-'), 'end']
 genes_df.loc[(genes_df.strand == '-'), 'start'] = genes_df.loc[(genes_df.strand == '-'), 'end'] - 1
 
 # make a genes pbt for intersection
-print("# make a genes pbt for intersection")
+print('# make a genes pbt for intersection')
 print(genes_df.head())
 genes_pbt = pbt.BedTool.from_dataframe(genes_df).sort()
 
@@ -221,17 +231,17 @@ coloc_snp_windows = coloc_sig_pbt.slop(b=slop, g=params.gs)
 cd_sgls = coloc_snp_windows.intersect(genes_pbt, wa=True, wb=True).to_dataframe()
 
 # reorder for downstream loop intersections 
-cd_sgls = cd_sgls.iloc[:, [0,1,2,4,5,6,3,7,8,9]]
-cd_sgls.columns = bedpe_6cols + ['sid', 'genename', 'geneid', 'strandB']
+cd_sgls = cd_sgls.iloc[:, [0,1,2,5,6,7,3,4,8,9,10]]
+cd_sgls.columns = bedpe_6cols + ['sid', 'sgl.rsid', 'genename', 'geneid', 'strandB']
 
 # add remaining bedpe-10 columns and reordering
 cd_sgls['strandA'] = '+'
 cd_sgls['name'] = cd_sgls['sid'] + '-' + cd_sgls['geneid']
 cd_sgls['score'] = '.'
-new_order = bedpe_10cols + ['sid', 'genename', 'geneid']
+new_order = bedpe_10cols + ['sid', 'sgl.rsid', 'genename', 'geneid']
 cd_sgls = cd_sgls[new_order]
 
-# remove the sloop added in window step
+# remove the slop added in window step
 # also ensuring that integer columns remain so, some 
 # calculations with these columns can change them into floats
 # and cause downstream effects like missing loop intersections
@@ -305,13 +315,19 @@ print('### Find SNP-Gene overlapping a loop (both anchors)')
 # re-arranging to fit bedpe format
 pr_sgls = cd_sgls.copy()
 
+#print('pr_sgls', pr_sgls.head())
+print('pr_sgls', pr_sgls)
+#print('loops', tmp_loops.head())
+print('loops', tmp_loops)
+
 # loading into pbt
 pr_sgls = pbt.BedTool.from_dataframe(pr_sgls)
 pr_sgls = pr_sgls.pair_to_pair(loops, type='both', **{'is':True})
 pr_sgls = pr_sgls.to_dataframe(disable_auto_names=True, header=None)
 
+# extracting sid-geneid pairs
 if len(pr_sgls) > 0:
-    pr_sgls_set = pr_sgls.iloc[:, [10,12]]
+    pr_sgls_set = pr_sgls.iloc[:, [10,13]]
     pr_sgls_uniq = set([tuple(x) for x in pr_sgls_set.values.tolist()])
 else:
     print('WARNING: Found no overlap between the genes and loops.')
@@ -324,8 +340,10 @@ print('### Find coloc-SNP overlapping an anchor')
 if len(pr_sgls) > 0:
     colocSNP_anchors_set = set(pr_sgls.iloc[:, 10].values)
 else:
-    print('WARNING: Found no overlap between coloc SNPs and loop anchors.')
-    colocSNP_anchors_set = set()
+    print('WARNING: Found no overlap between coloc SNP-Gene pairs and loop anchors.')
+    print('Will stop running.')
+    exit()
+    #colocSNP_anchors_set = set()
 
 print('There are {} SNPs which overlap a loop anchor.'.format(len(colocSNP_anchors_set)))
 
@@ -341,10 +359,7 @@ else:
 print('There are {} Genes which overlap a loop anchor.'.format(len(colocGene_anchors_set)))
 
 # ### Creating a mapper between coloc id and loop id
-print("pr_sgls.head()")
-print(pr_sgls.head())
-
-coloc_loop_mapper = pr_sgls.iloc[:, [6, 19]]
+coloc_loop_mapper = pr_sgls.iloc[:, [6, 20]]
 coloc_loop_mapper.columns = ['coloc.id', 'loop.id']
 coloc_loop_mapper.drop_duplicates(inplace=True)
 
@@ -356,12 +371,34 @@ master = cd_sgls.copy()
 
 print('Master is starting with {} candidate snp-gene pairs.'.format(master.shape[0]))
 
-
 # ## Add eQTL fields/details 
 print('#### Add eqtl results')
+master['eqtl_id'] = master['sid'] + '.' + master['geneid']
 
 # get SNP eQTL's; filtering required for eQTL Catalogue data
-eqtls = pd.read_table(params.eqtls, header=0) #, nrows=1000000)
+print("# get SNP eQTL's; filtering required for eQTL Catalogue data")
+i = 0
+data = []
+with gzip.open(params.eqtls, mode='rt') as fh:
+    header = next(fh).strip().split('\t')
+    rd = csv.reader(fh, delimiter="\t")
+    for row in rd:
+
+        # using rsid + geneid to form an eQTL id
+        #eqtl_id = '{}.{}'.format(row[0], row[18])
+
+        # using SNP position + geneid to form an eQTL id (less ideal)
+        sid = '{}:{}'.format(row[1].replace('chr', ''), row[2])
+        eqtl_id = '{}.{}'.format(sid, row[0])
+        if eqtl_id in master.eqtl_id:
+            data.append(row)
+
+        # using i variable for testing
+        i += 1 
+        if i == 1000:
+            break
+
+eqtls = pd.DataFrame(data, columns=header)
 
 # gathering a dictionary of eqtl renames
 # renaming must be one AFTER reordering columns
@@ -398,8 +435,6 @@ eqtls.loc[:, 'eqtl.pos'] = eqtls['eqtl.pos'].astype(int)
 # remove versioned portion of gene ID
 eqtls.geneid = eqtls.geneid.str.replace('\.[0-9]*$', '', regex=True)
 
-print(eqtls.head())
-
 eqtls['sid'] = eqtls['eqtl.chr'].replace('chr', '', regex=True).astype(str) + ':' + eqtls['eqtl.pos'].astype(str)
 eqtls['flt.is_eqtl_pair'] = 1 # add column to filter on eqtl snp status
 print('There are {} eQTLs.'.format(eqtls.shape[0]))
@@ -426,7 +461,6 @@ master.loc[master.endA.isna(), 'endA'] = master.loc[master.endA.isna(), 'sid'].s
 master.loc[:, 'flt.is_eqtl_gene'] = (master.geneid.isin(eqtls.geneid.unique())).astype(int)
 
 print('After outer merging with eqtls, master has {} snp-gene pairs.'.format(master.shape[0]))
-
 
 # ## Add gene meta fields/columns 
 print('### Add gene meta data')
@@ -493,6 +527,12 @@ print('Checking if I have the correct number of colocalized SNPs: before {}; aft
 
 # add loop meta-data
 master = master.merge(coloc_loop_mapper, left_on='name', right_on='coloc.id', how='left')
+
+#print(coloc_loop_mapper)
+#print(master.iloc[0])
+#print(master['loop.id'])
+#print(full_loops.iloc[0])jj
+
 master = master.merge(full_loops, on='loop.id', how='left')
 
 # add boolean field for has_fithichip_loop
@@ -501,8 +541,12 @@ loop_check = [0] * master.shape[0]
 for i, sr in master.iterrows():
     # check closest gene
     rs_gene = (sr.sid, sr.geneid)
+    print(rs_gene)
     if rs_gene in pr_sgls_uniq:
         loop_check[i] = 1       
+
+
+exit()
 
 master['flt.has_fithichip_loop'] = loop_check
 print('There are {} SNP-Gene loops.'.format(sum(loop_check)))
@@ -529,6 +573,14 @@ coloc_cols = [i for i in np.arange(master.shape[1]) if master.columns[i].startsw
 eqtl_cols = [i for i in np.arange(master.shape[1]) if master.columns[i].startswith('eqtl.')]
 main_cols = [i for i in np.arange(master.shape[1]) if master.columns[i].split('.')[0] not in prefixes]
 loop_cols = [i for i in np.arange(master.shape[1]) if master.columns[i].startswith('loop.')]
+
+
+
+print(main_cols + flt_cols + coloc_cols + loop_cols + eqtl_cols + gene_cols)
+print(master.columns[main_cols + flt_cols + coloc_cols + loop_cols + eqtl_cols + gene_cols])
+
+
+
 final_master = master.iloc[:, main_cols + flt_cols + coloc_cols + loop_cols + eqtl_cols + gene_cols]
 
 # remove a few 
@@ -537,7 +589,7 @@ final_master = master.iloc[:, main_cols + flt_cols + coloc_cols + loop_cols + eq
 # write out the master data
 fn = os.path.join(params.outdir, 'master.tsv')
 os.makedirs(params.outdir, exist_ok=True)
-final_master.to_csv(fn, sep='\t', header=True, index=False)
+final_master.to_csv(fn, sep='\t', header=True, na_rep='NaN', index=False)
 
 #fn = os.path.join(params.outdir, 'master.xlsx')
 #excel_master = master.sort_values('rsid').set_index('rsid')

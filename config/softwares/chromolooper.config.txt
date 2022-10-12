@@ -1,0 +1,8 @@
+BGZIP = '/mnt/BioApps/tabix/tabix-0.2.6/bgzip'
+TABIX = '/mnt/BioApps/tabix/tabix-0.2.6/tabix'
+PAIRLIFTOVER = "/mnt/bioadhoc-temp/Groups/vd-ay/jreyna/software/mamba/envs/pairliftover/bin/pairLiftOver"
+COOLER_CLI = '/mnt/bioadhoc-temp/Groups/vd-ay/jreyna/software/mamba/envs/hichip-db/bin/cooler'
+
+# contains the Cooler CLI 
+COOLER_CLI_DIR = '/mnt/bioadhoc-temp/Groups/vd-ay/jreyna/software/mamba/envs/hichip-db/bin/'
+BEDTOOLS_DIR = '/mnt/BioApps/bedtools/bin/'
