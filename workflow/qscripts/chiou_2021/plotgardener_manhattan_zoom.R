@@ -14,7 +14,6 @@ args = c(ss, ld, outdir)
 
 dir.create(args[3], recursive = TRUE, showWarnings = FALSE)
 
-
 ## Load GWAS data
 gwas_ss <- read.table(args[1], sep='\t', header = TRUE)
 
@@ -58,13 +57,19 @@ orange = "orange"
 red = "red"
 grey = "grey"
 fill_palette = c(teal, green, white, orange, red, grey)
+names(fill_palette) <- c("0", "0.2", "0.4", "0.6", "0.8", "1")
 legend_palette = c(indigo, red, orange, white, green, teal, grey)
+
+
+plot_specs = list(xlim=c())
 
 # loopingn through different signals
 uniq_signals <- unlist(unique(gwas_ss["Signal.name"]))
 for (signal_name in uniq_signals){
     
     signal_name = 'PTPN22_1:114377568:A:G'
+    signal_name = 'NEURL4_17:7240391:C:T'
+    
     print(signal_name)
     
     ## Open an SVG device
@@ -84,7 +89,7 @@ for (signal_name in uniq_signals){
     example = curr_df[1,]
     
     ## Create an SVG
-    svg(tmp_fn, width = 8.0, height = 3)
+    #svg(tmp_fn, width = 8.0, height = 3)
     
     ## Create a page
     pageCreate(width = 7.5, height = 2, default.units = "inches")
@@ -116,6 +121,14 @@ for (signal_name in uniq_signals){
     
     merge_df <- dplyr::rename(merge_df, pos="pos.x")
     
+    # get the uniq ld groups
+    # uniq_ld_grps = as.vector(unique((merge_df[["LDgrp"]])))
+    # uniq_ld_grps = str_split(uniq_ld_grps, ',')
+    # uniq_ld_grps = lapply(uniq_ld_grps, function(x){x[[2]]})
+    # uniq_ld_grps = str_replace(uniq_ld_grps, ']', '')
+    # 
+    # curr_colors = sapply(uniq_ld_grps, function(x){fill_palette[x]})
+    
     ## Plot the manhattan plot
     print("## Plot the manhattan plot")
     chr11_manhattanPlot <- plotManhattanGeneral(
@@ -125,7 +138,7 @@ for (signal_name in uniq_signals){
         chromend = right_pos,
         assembly = "hg19",
         fill = colorby("LDgrp",
-                       palette = colorRampPalette(fill_palette)),
+                   palette = colorRampPalette(fill_palette)),
         sigLine = FALSE,
         col = "grey",
         lty = 2,
@@ -137,7 +150,7 @@ for (signal_name in uniq_signals){
             fill = "#7ecdbb",
             fontsize = 8
         ),
-        x = 0.5, y = 0, width = 6.5,
+        x = 0.5, y = 0, width = 5,
         height = 1.5,
         just = c("left", "top"),
         default.units = "inches"
@@ -211,7 +224,7 @@ for (signal_name in uniq_signals){
     ## Hide page guides
     pageGuideHide()
     
-    dev.off()
+    #dev.off()
     
     break
     
