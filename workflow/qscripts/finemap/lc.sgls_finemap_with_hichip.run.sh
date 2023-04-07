@@ -8,6 +8,13 @@
 #PBS -d .
 #PBS -V
 
+# print start time message
+start_time=$(date "+%Y.%m.%d.%H.%M")
+echo "Start time: $start_time"
+
+# print start message
+echo "Started: lc.sgls_finemap_with_hichip"
+
 # # run bash in strict mode
 set -euo pipefail
 IFS=$'\n\t'
