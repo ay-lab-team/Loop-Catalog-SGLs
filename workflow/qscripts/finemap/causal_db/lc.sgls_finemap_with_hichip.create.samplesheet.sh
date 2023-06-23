@@ -1,10 +1,10 @@
 # #!/bin/bash
 
 #################################################
-# get causal db data
+# get causaldb study data
 #################################################
 
-# download the causal_db samplesheet
+# download the causal_db samplesheet from the LC storage
 gwas_samplesheet_url="https://loopcatalog.lji.org/storage/release-0.1/database/hg38/gwas_study/init.gwas_study.causal_db.tsv"
 gwas_samplesheet="workflow/qscripts/finemap/causal_db/init.gwas_study.causal_db.tsv"
 if [[ ! -f "$gwas_samplesheet" ]];
@@ -51,7 +51,7 @@ while IFS= read -r gwas_sample
 do
     # get the gwas file path
     gwas_id=$(echo "$gwas_sample" | awk 'BEGIN{FS="\t";} {print $19}' | tr -d '\r')
-    gwas_fn="${lji_causaldb_dir}/credible_set/${gwas_id}_total_credible_set.txt"
+    gwas_fn="${lji_causaldb_dir}/credible_set/${gwas_id}_total_credible_set.hg38.txt"
 
     # get the sgl dir
     sgl_gwas_dir="${sgl_dir}/${gwas_id}/"
@@ -69,10 +69,5 @@ do
     done
 
 done < "$gwas_imm_samplesheet"
-
-
-
-
-
 
 #mkdir -P $sgl_gwas_dir
