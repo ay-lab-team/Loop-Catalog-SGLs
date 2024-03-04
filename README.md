@@ -1,4 +1,20 @@
 # Interpreting Type 1 Diabetes GWAS signals with HiChIP
-As the Ay Lab we completed in the 2021 DChallenge. Since then I have expanded the project to include other datasets, methods, etc.
 
-Please checkout the Wiki page for more details: https://gitlab.lji.org/jreyna/dchallenge/-/wikis/home. 
+This is an SGL pipeline for SNP to Gene linking between CausalDB SNPs and Loop Catalog samples 
+for psoriasis, T1D, etc. 
+
+To run this pipeline the steps are as follows:
+
+**Setup the Data**
+
+The Loop Catalog has attempted to classify the organ of samples. All "immune-associated" will be used. Data will be stored within
+
+```
+run this
+```
+
+** Intersect CausalDB + Loop Catalog
+
+```
+run this
+```
