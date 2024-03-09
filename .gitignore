@@ -7,3 +7,5 @@ scripts/coloc/qjobs/
 .Rproj.user
 workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.samplesheet.txt
 check.xlsx
+.bgz
+.vscode/
