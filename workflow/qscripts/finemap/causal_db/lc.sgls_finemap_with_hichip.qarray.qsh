@@ -1,12 +1,11 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=1
-#PBS -l mem=8gb
-#PBS -l walltime=100:00:00
-#PBS -e results/hg38/finemapping/sgls/logs/
-#PBS -o results/hg38/finemapping/sgls/logs/
-#PBS -N lc.sgls_finemap_with_hichip.causal_db
-#PBS -d .
-#PBS -V
+#SBATCH --job-name=lc.sgls_finemap_with_hichip.causal_db
+#SBATCH --nodes=1
+#SBATCH --mem=8gb
+#SBATCH --time=100:00:00
+#
+# tempSBATCH --error=results/hg38/finemapping/sgls/logs/
+# tempSBATCH --output=results/hg38/finemapping/sgls/logs/
 
 # print start time message
 start_time=$(date "+%Y.%m.%d.%H.%M")
@@ -21,21 +20,18 @@ IFS=$'\n\t'
 
 # dummy value when not running with qsub
 echo
-if [[ -z ${PBS_ARRAYID+x} ]]
+if [[ -z ${SLURM_ARRAY_TASK_ID+x} ]]
 then
-    echo "Running with bash, setting PBS_ARRAYID=\$1=$1"
-    PBS_ARRAYID=$1
+    echo "Running with bash, setting SLURM_ARRAY_TASK_ID=\$1=$1"
+    samplesheet=$1
+    SLURM_ARRAY_TASK_ID=$2
 else
-    echo "Running with qsub, PBS_ARRAYID=$PBS_ARRAYID"
+    echo "Running with sbatch, SLURM_ARRAY_TASK_ID=$SLURM_ARRAY_TASK_ID"
 fi
 echo
 
-# working on coverting to the SLURM mode
-#row_number=( $(seq $istart $iend) )
-#row_number="${row_number[$PBS_ARRAYID]}"
-
 # getting the sample params
-sample_params=( $(sed -n "${PBS_ARRAYID}p" workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.samplesheet.txt) )
+sample_params=( $(sed -n "${SLURM_ARRAY_TASK_ID}p" $samplesheet ) )
 gwas_fn=${sample_params[0]}
 loop_fn=${sample_params[1]}
 sgl_fn=${sample_params[2]}
