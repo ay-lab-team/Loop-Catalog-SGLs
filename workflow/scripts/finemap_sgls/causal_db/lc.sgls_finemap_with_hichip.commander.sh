@@ -17,6 +17,13 @@
 ###############################################################################
 # run batch2
 ###############################################################################
-samplesheet="results/samplesheets/sgls/batch2/lc.sgls_finemap_with_hichip.samplesheet.txt"
+#samplesheet="results/samplesheets/sgls/batch2/lc.sgls_finemap_with_hichip.samplesheet.txt"
 #sbatch --array=1 --export="samplesheet=$samplesheet" workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.qarray.qsh
-sbatch --array=2-162 --export="samplesheet=$samplesheet" workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.qarray.qsh
+#sbatch --array=2-162 --export="samplesheet=$samplesheet" workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.qarray.qsh
+
+###############################################################################
+# run batch2
+###############################################################################
+samplesheet="results/samplesheets/sgls/biorep_merged/lc.sgls_finemap_with_hichip.samplesheet.txt"
+#sbatch --array=1 --export="samplesheet=$samplesheet" workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.qarray.qsh
+sbatch --array=1-180 --export="samplesheet=$samplesheet" workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.qarray.qsh

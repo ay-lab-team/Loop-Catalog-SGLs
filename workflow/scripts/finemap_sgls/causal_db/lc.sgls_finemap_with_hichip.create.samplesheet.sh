@@ -1,6 +1,7 @@
 # #!/bin/bash
 
 batch="batch2"
+batch="biorep_merged"
 
 #################################################
 # get causaldb study data
@@ -62,7 +63,7 @@ do
 
     # cycle through loop
     echo "# cycle through loop"
-    for loop_sample in $(cat $loopcatalog_imm_select);
+    for loop_sample in $(head $loopcatalog_imm_select);
     do 
         loop_fn="results/hg38/loops/hichip/chip-seq/macs2/stringent/${loop_sample}.5000.fithichip_q0.01.loops.bed"
         output_fn="${sgl_gwas_dir}/${loop_sample}.5000.finemap_sgls.tsv"

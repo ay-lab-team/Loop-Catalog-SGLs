@@ -9,15 +9,20 @@ The working directory for this pipeline is considered: `workflow/qscripts/finema
 In some cases you have to run scripts from the project directory: `/mnt/BioHome/jreyna/jreyna-temp/projects/t1d-loop-catalog`
 
 ### Setup the data 
-The Loop Catalog has attempted to classify the organ of samples. All "Immune-associated" will be used. To extract these samples simple
-go to: (https://loopcatalog.lji.org/loops/?genome=hg38)[https://loopcatalog.lji.org/loops/?genome=hg38]. In the search bar look for "Immune-associated" and click CSV to download a samplesheet. From there you can do more filtering if necessary, for now I just extracted the standard sample names and directly pasted them into:
+The Loop Catalog has attempted to classify the organ of samples. All
+"Immune-associated" will be used. To extract these samples simple
+go to: (https://loopcatalog.lji.org/loops/?genome=hg38)[https://loopcatalog.lji.org/loops/?genome=hg38].
+In the search bar look for "Immune-associated" and click CSV to download a
+samplesheet. From there you can do more filtering if necessary, for now I just
+extracted the standard sample names and directly pasted them into:
 
 ```
-results/samplesheets/sgls/loopcatalog.immune_select_samples.txt
+results/samplesheets/sgls/<batch>/loopcatalog.immune_select_samples.txt
 ```
 
 2) Symlink the LJI-LCSD for Access to Loops # COMPLETED
 ```
+# biomerged will also be located here with proper symlinking
 ln -s /mnt/BioAdHoc/Groups/vd-ay/hichip-db-loop-calling/results/lji_lcsd_hub/release-0.1/hub/hg38/loops results/hg38/
 ```
 
