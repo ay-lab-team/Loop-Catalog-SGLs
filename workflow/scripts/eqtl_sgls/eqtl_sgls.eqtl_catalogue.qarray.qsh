@@ -1,0 +1,70 @@
+#!/bin/bash
+#SBATCH --job-name=sgls_eqtl_with_hichip.eqtl_catalog
+#SBATCH --nodes=1
+#SBATCH --mem=8gb
+#SBATCH --time=100:00:00
+#SBATCH --error=results/hg38/eqtl_sgls/logs/sgls_eqtl_with_hichip.eqtl_catalog.%A_%a.err
+#SBATCH --output=results/hg38/eqtl_sgls/logs/sgls_eqtl_with_hichip.eqtl_catalog.%A_%a.out
+
+# print start time message
+start_time=$(date "+%Y.%m.%d.%H.%M")
+echo "Start time: $start_time"
+
+# print start message
+echo "Started: sgls_eqtl_with_hichip.eqtl_catalog"
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+# load helper functions and paths
+source workflow/scripts/helper_functions.sh
+
+# dummy value when not running with qsub
+echo
+if [[ -z ${SLURM_ARRAY_TASK_ID+x} ]]
+then
+    echo "Running with bash, setting SLURM_ARRAY_TASK_ID=\$1=$1"
+    samplesheet=$1
+    SLURM_ARRAY_TASK_ID=$2
+else
+    echo "Running with sbatch, SLURM_ARRAY_TASK_ID=$SLURM_ARRAY_TASK_ID"
+fi
+echo
+
+# set global params
+gene_coords="results/hg38/refs/gencode/v30/gencode.v30.annotation.bed"
+bedtools_path=$(dirname $bedtools)
+
+# getting the sample params
+sample_params=( $(sed -n "${SLURM_ARRAY_TASK_ID}p" $samplesheet ) )
+loop=${sample_params[0]}
+eqtl=${sample_params[1]}
+
+# example eqtl results/hg38/loops/hichip/chip-seq/macs2/stringent/CD4_Naive_1800-RH-1.phs001703v3p1.Homo_Sapiens.H3K27ac.b1.5000.fithichip_q0.01.loops.bed
+# example loop results/hg38/eqtl/eqtl_catalogue/QTD000001.credible_sets.tsv.gz
+
+# extracting std_sample_name + ec_dataset_id to make the output 
+std_sample_name=$(echo $loop | parallel basename {} | sed "s/.fithichip_q0./,/" | cut -f 1 -d ,)
+ec_dataset_id=$(echo $eqtl | parallel basename {} | cut -f 1 -d .)
+output="results/hg38/eqtl_sgls/${ec_dataset_id}/${std_sample_name}.eqtl_sgls.tsv"
+
+echo "eqtl: ${eqtl}"
+echo "std_sample_name: ${std_sample_name}"
+echo "ec_dataset_id: ${ec_dataset_id}"
+echo "output: ${output}"
+
+# make the sgl dir
+mkdir -p $(dirname $output)
+
+# Run the Python script with the specified arguments
+cmd="$hichip_db_py workflow/scripts/eqtl_sgls/eqtl_sgls.eqtl_catalogue.py --eqtl ${eqtl} \
+                                                        --loop ${loop} \
+                                                        --gene-coords ${gene_coords} \
+                                                        --output ${output} \
+                                                        --bedtools-path ${bedtools_path}"
+echo "Running: $cmd"
+eval $cmd
+
+start_time=$(date "+%Y.%m.%d.%H.%M")
+echo "End time: $start_time"
