@@ -35,18 +35,23 @@ bedpe_cols = ['chrA', 'startA', 'endA', 'chrB', 'startB', 'endB']
 
 # get the bin coordinates
 gwas_df = pd.read_table(args.gwas_fn)
-gwas_df['start'] = gwas_df['BP'] - 1
-gwas_df.rename(columns={'CHR': 'chrom', 'BP': 'end'}, inplace=True)
-gwas_df = gwas_df[['chrom', 'start', 'end']]
+gwas_df['start_snp'] = gwas_df['BP'] - 1
+gwas_df.rename(columns={'CHR': 'chrom', 'BP': 'end_snp', 'rsID': 'rsid'}, inplace=True)
+gwas_df.columns = [x.lower() for x in gwas_df.columns] 
+
+# reordering columns for proper intersections
+gwas_df = gwas_df[['chrom', 'start_snp', 'end_snp', 'rsid', 'maf', 'ea', 'nea', 'beta', 'se', 'p', 'zscore', 'paintor', 'caviarbf', 'finemap', 'meta_id', 'block_id', 'label', 'causaldb_fn']]
 
 # create a pybedtools for finemap data
 gwas_pbt = pbt.BedTool.from_dataframe(gwas_df)
 
 ############# Load HiChIP Loops #############
 loop_df = pd.read_table(args.loop_fn)
+loop_df.rename(columns={'chr1': 'chrA_loop', 's1': 'startA_loop', 'e1': 'endA_loop',
+                        'chr2': 'chrB_loop', 's2': 'startB_loop', 'e2': 'endB_loop'}, inplace=True)
 loop_df['-log10_qval'] =  loop_df['Q-Value_Bias'].apply(lambda x: -np.log(x))
-loop_df['chr1'] = loop_df['chr1'].str.replace('chr', '') 
-loop_df['chr2'] = loop_df['chr2'].str.replace('chr', '') 
+loop_df['chrA_loop'] = loop_df['chrA_loop'].str.replace('chr', '')
+loop_df['chrB_loop'] = loop_df['chrB_loop'].str.replace('chr', '')
 
 # create a dataframe in bed format which filters for significant
 # SNPs only p-val < 0.05 (or -log10(p-val) > 1.3)
@@ -69,11 +74,8 @@ gwas_hichip = intersect_pbt.to_dataframe(header=None, disable_auto_names=True)
 if len(gwas_hichip) == 0:
     print('No overlap between GWAS and HiChIP loops. Exiting.')
     exit()
-    
-gwas_hichip.columns = ['chrA_loop', 'startA_loop', 'endA_loop',
-                       'chrB_loop', 'startB_loop', 'endB_loop', 
-                       '-log10_qval_loop', 'chr_snp', 'start_snp', 'end_snp']
 
+gwas_hichip.columns = loop_bed.columns.tolist() + gwas_df.columns.tolist()
 
 ############# Integrate genes and located SGLs #############
 # For the types of SGLs through this approach we have to find identify loops where one anchor overlaps a SNP and the other one overlaps a gene promoter. As such, we used the previously intersected data to find loop anchors without a SNP overlap and we will intersect these anchors with gene promoters next. 

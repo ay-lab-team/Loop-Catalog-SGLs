@@ -3,9 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --mem=8gb
 #SBATCH --time=100:00:00
-#
-# tempSBATCH --error=results/hg38/finemapping/sgls/logs/
-# tempSBATCH --output=results/hg38/finemapping/sgls/logs/
+#SBATCH --error=results/hg38/finemapping/sgls/logs/lc.sgls_finemap_with_hichip.causal_db_%A_%a.err
+#SBATCH --output=results/hg38/finemapping/sgls/logs/lc.sgls_finemap_with_hichip.causal_db_%A_%a.err
 
 # print start time message
 start_time=$(date "+%Y.%m.%d.%H.%M")
@@ -57,13 +56,13 @@ res=5000
 # fi
 
 # load helper functions and paths
-source workflow/qscripts/helper_functions.sh
+source workflow/scripts/helper_functions.sh
 
 # Define the path to bedtools
 bedtools_path=$(dirname $bedtools)
 
 # Run the Python script with the specified arguments
-cmd="$hichip_db_py workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hichip.py \
+cmd="$hichip_db_py workflow/scripts/finemap_sgls/causal_db/lc.sgls_finemap_with_hichip.py \
     --gwas $gwas_fn \
     --loop $loop_fn \
     --gene-coords $gene_coords \
@@ -72,3 +71,6 @@ cmd="$hichip_db_py workflow/qscripts/finemap/causal_db/lc.sgls_finemap_with_hich
     --bedtools-path $bedtools_path"
 echo "Running: $cmd"
 eval $cmd
+
+start_time=$(date "+%Y.%m.%d.%H.%M")
+echo "End time: $start_time"

@@ -2,6 +2,7 @@
 
 batch="batch2"
 batch="biorep_merged"
+batch="mega-merged"
 
 #################################################
 # get causaldb study data
@@ -16,7 +17,7 @@ batch="biorep_merged"
 #fi
 #
 ## extract the 5 main diseases
-gwas_imm_samplesheet="workflow/qscripts/finemap/causal_db/init.gwas_study.causal_db.immune_select_samples.tsv"
+gwas_imm_samplesheet="workflow/scripts/finemap_sgls/causal_db/init.gwas_study.causal_db.immune_select_samples.tsv"
 #awk 'BEGIN{
 #        t1d = "Diabetes Mellitus, Type 1";
 #        ps = "Psoriasis";
@@ -41,8 +42,8 @@ gwas_imm_samplesheet="workflow/qscripts/finemap/causal_db/init.gwas_study.causal
 #################################################
 # Make the FM SGL samplesheet
 #################################################
-loopcatalog_imm_select="results/samplesheets/sgls/${batch}/loopcatalog.immune_select_samples.txt"
-sgl_samplesheet="results/samplesheets/sgls/${batch}/lc.sgls_finemap_with_hichip.samplesheet.txt"
+loopcatalog_imm_select="results/samplesheets/finemap_sgls/${batch}/loopcatalog.immune_select_samples.txt"
+sgl_samplesheet="results/samplesheets/finemap_sgls/${batch}/lc.sgls_finemap_with_hichip.samplesheet.txt"
 
 # create an empty file
 truncate -s 0 $sgl_samplesheet

@@ -2,8 +2,8 @@
 #PBS -l nodes=1:ppn=1
 #PBS -l mem=8gb
 #PBS -l walltime=100:00:00
-#PBS -e results/hg38/finemapping/sgls/logs/
-#PBS -o results/hg38/finemapping/sgls/logs/
+#SBATCH -e results/hg38/finemapping/sgls/logs/
+#SBATCH -o results/hg38/finemapping/sgls/logs/
 #PBS -N lc.sgls_finemap_with_hichip
 #PBS -d .
 #PBS -V
@@ -32,7 +32,7 @@ echo
 
 # getting the loop file name
 gwas_fn="results/hg38/external_studies/chiou_2021/processing/finemapping/hg38.finemapping.basic.bed"
-loop_fn=$(sed -n "${PBS_ARRAYID}p" workflow/qscripts/finemap/lc.sgls_finemap_with_hichip.samplesheet.txt)
+loop_fn=$(sed -n "${PBS_ARRAYID}p" workflow/scripts/finemap_sgls/lc.sgls_finemap_with_hichip.samplesheet.txt)
 sample_name=$(basename $loop_fn | cut -d. -f1,2,3,4,5,6)
 gene_coords="results/hg38/refs/gencode/v30/gencode.v30.annotation.bed"
 prefix="results/hg38/finemapping/sgls/${sample_name}/${sample_name}."
@@ -52,13 +52,13 @@ res=5000
 # fi
 
 # load helper functions and paths
-source workflow/qscripts/helper_functions.sh
+source workflow/scripts/helper_functions.sh
 
 # Define the path to bedtools
 bedtools_path=$(dirname $bedtools)
 
 # Run the Python script with the specified arguments
-$hichip_db_py workflow/qscripts/finemap/lc.sgls_finemap_with_hichip.py \
+$hichip_db_py workflow/scripts/finemap_sgls/lc.sgls_finemap_with_hichip.py \
     --gwas "$gwas_fn" \
     --loop "$loop_fn" \
     --gene-coords "$gene_coords" \
