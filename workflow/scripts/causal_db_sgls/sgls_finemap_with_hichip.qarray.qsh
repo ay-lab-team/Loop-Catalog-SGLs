@@ -1,23 +1,23 @@
 #!/bin/bash
-#SBATCH --job-name=lc.sgls_finemap_with_hichip.causal_db
+#SBATCH --job-name=sgls_finemap_with_hichip.causal_db
 #SBATCH --nodes=1
 #SBATCH --mem=8gb
 #SBATCH --time=100:00:00
-#SBATCH --error=results/hg38/finemapping/sgls/logs/lc.sgls_finemap_with_hichip.causal_db_%A_%a.err
-#SBATCH --output=results/hg38/finemapping/sgls/logs/lc.sgls_finemap_with_hichip.causal_db_%A_%a.err
+#SBATCH --error=results/hg38/finemapping/sgls/logs/sgls_finemap_with_hichip.causal_db_%A_%a.out
+#SBATCH --output=results/hg38/finemapping/sgls/logs/sgls_finemap_with_hichip.causal_db_%A_%a.err
 
 # print start time message
 start_time=$(date "+%Y.%m.%d.%H.%M")
 echo "Start time: $start_time"
 
 # print start message
-echo "Started: lc.sgls_finemap_with_hichip"
+echo "Started: sgls_finemap_with_hichip"
 
 # # run bash in strict mode
 set -euo pipefail
 IFS=$'\n\t'
 
-# dummy value when not running with qsub
+# dummy value when not running with sbatch
 echo
 if [[ -z ${SLURM_ARRAY_TASK_ID+x} ]]
 then
@@ -30,10 +30,20 @@ fi
 echo
 
 # getting the sample params
-sample_params=( $(sed -n "${SLURM_ARRAY_TASK_ID}p" $samplesheet ) )
+curr_idx=$(expr $SLURM_ARRAY_TASK_ID + $offset)
+sample_params=( $(sed -n "${curr_idx}p" $samplesheet ) )
 gwas_fn=${sample_params[0]}
 loop_fn=${sample_params[1]}
 sgl_fn=${sample_params[2]}
+
+# decided whether to rerun
+if [ -f $sgl_fn ];
+then
+    echo "Exiting. This analysis has already been completed for ${sgl_fn}."
+    exit
+else
+    echo "Running. This analysis has not been completed for ${sgl_fn}."
+fi
 
 # make the sgl dir
 mkdir -p $(dirname $sgl_fn)
@@ -62,7 +72,7 @@ source workflow/scripts/helper_functions.sh
 bedtools_path=$(dirname $bedtools)
 
 # Run the Python script with the specified arguments
-cmd="$hichip_db_py workflow/scripts/finemap_sgls/causal_db/lc.sgls_finemap_with_hichip.py \
+cmd="$hichip_db_py workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.py \
     --gwas $gwas_fn \
     --loop $loop_fn \
     --gene-coords $gene_coords \
