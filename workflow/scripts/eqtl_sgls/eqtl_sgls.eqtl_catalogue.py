@@ -29,6 +29,7 @@ args = parser.parse_args()
 pbt.set_bedtools_path(args.bedtools_path)
 
 ############# Load GENCODE Data #############
+print('############# Load GENCODE Data #############')
 gencode = pd.read_table(args.gene_coords, header=None)
 gencode.columns = ['gene_chrom', 'gene_start', 'gene_end', 'gene_strand', 'gene_type', 'gene_id', 'gene_name']
 gencode = gencode.loc[gencode.gene_type == 'gene']
@@ -45,6 +46,7 @@ tss_df.columns = ['tss_start', 'tss_end']
 gencode = pd.concat([gencode, tss_df], axis=1)
 
 ############# Load eQTL Data #############
+print('############# Load eQTL Data #############')
 eqtl_df = pd.read_table(args.eqtl_fn)
 
 # extract variant coordinates
@@ -56,6 +58,7 @@ eqtl_df = pd.concat([eqtl_df, variant_df], axis=1)
 
 
 ############# Merge eQTL with GENCODE Data #############
+print('############# Merge eQTL with GENCODE Data #############')
 # merge eqtls with gencode coordinates
 eqtl_df = eqtl_df.merge(gencode, on='gene_id', how='left', indicator=True)
 
@@ -103,6 +106,7 @@ loop_pbt = pbt.BedTool.from_dataframe(loop_bed)
 
 
 ############# Intersect Fine Mapped GWAS and loops #############
+print('############# Intersect Fine Mapped GWAS and loops #############')
 
 # #### Perform the intersection
 

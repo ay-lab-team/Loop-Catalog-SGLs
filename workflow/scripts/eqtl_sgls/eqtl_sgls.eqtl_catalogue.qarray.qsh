@@ -45,7 +45,7 @@ eqtl=${sample_params[1]}
 # example loop results/hg38/eqtl/eqtl_catalogue/QTD000001.credible_sets.tsv.gz
 
 # extracting std_sample_name + ec_dataset_id to make the output 
-std_sample_name=$(echo $loop | parallel basename {} | sed "s/.fithichip_q0./,/" | cut -f 1 -d ,)
+std_sample_name=$(echo $loop | parallel basename {} | sed "s/.raw.loops.bed//")
 ec_dataset_id=$(echo $eqtl | parallel basename {} | cut -f 1 -d .)
 output="results/hg38/eqtl_sgls/${ec_dataset_id}/${std_sample_name}.eqtl_sgls.tsv"
 
