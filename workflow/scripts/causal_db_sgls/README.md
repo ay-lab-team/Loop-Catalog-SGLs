@@ -67,8 +67,6 @@ ln -s /mnt/BioAdHoc/Groups/vd-ay/hichip-db-loop-calling/results/loopcatalog/rele
     This script will call `workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.qarray.qsh` for each line in the samplesheet `results/samplesheets/causal_db_sgls/sgls_finemap_with_hichip.samplesheet.txt`
 
 
-
-
 3) Summarize the fine-mapping SGL results with:
     ```
         lc.sgls_finemap_with_hichip.summary.ipynb (Jupyter)
