@@ -1,5 +1,14 @@
 # Journal 
 
+2024.12.01 
+- Reran the eQTL SGLs with fixes to naming, etc
+- Now working with uploads to Loop Catalog
+  
+2024.11.29
+- Reran the eQTL SGLs
+  - Setup a manual + python way of setting up the samplesheet for this
+- Working on uploading, cannot find gene, retry eqtl test tomorrow
+
 2024.11.24
 - Checked the results of the SGL pipeline, 72 of the 77 samples had at least one SGL
   - The remaining samples had very low loop counts
