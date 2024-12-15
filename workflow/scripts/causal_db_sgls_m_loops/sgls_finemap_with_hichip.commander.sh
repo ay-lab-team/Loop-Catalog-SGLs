@@ -7,8 +7,7 @@
 # run with sbatch
 ###############################################################################
 
-samplesheet="results/samplesheets/causal_db_sgls/sgls_finemap_with_hichip.samplesheet.txt"
-#sbatch --array=1-144 --export="samplesheet=$samplesheet" workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.qarray.qsh
-sbatch --array=1-1000 --export="samplesheet=$samplesheet,offset=0" workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.qarray.qsh
-#sbatch --array=1-388 --export="samplesheet=$samplesheet,offset=1000" workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.qarray.qsh
-sbatch --array=1-422 --export="samplesheet=$samplesheet,offset=1000" workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.qarray.qsh
+samplesheet="results/samplesheets/causal_db_sgls/sgls_finemap_with_hichip.m_loops.samplesheet.txt"
+#sbatch --array=1 --export="samplesheet=$samplesheet,offset=0" workflow/scripts/causal_db_sgls_m_loops/sgls_finemap_with_hichip.qarray.qsh
+sbatch --array=1-1000 --export="samplesheet=$samplesheet,offset=0" workflow/scripts/causal_db_sgls_m_loops/sgls_finemap_with_hichip.qarray.qsh
+sbatch --array=1-422 --export="samplesheet=$samplesheet,offset=1000" workflow/scripts/causal_db_sgls_m_loops/sgls_finemap_with_hichip.qarray.qsh

@@ -56,7 +56,7 @@ fi
 loopcatalog_imm_select="results/samplesheets/causal_db_sgls/loopcatalog.immune_select_samples.txt"
 
 # output samplesheet
-sgl_samplesheet="results/samplesheets/causal_db_sgls/sgls_finemap_with_hichip.samplesheet.txt"
+sgl_samplesheet="results/samplesheets/causal_db_sgls/sgls_finemap_with_hichip.m_loops.samplesheet.txt"
 
 # create an empty file
 truncate -s 0 $sgl_samplesheet
@@ -77,10 +77,9 @@ do
 
     echo "gwas_id: ${gwas_id}"
 
-
     # get the sgl dir
     echo "# get the sgl dir"
-    sgl_gwas_dir="${sgl_dir}/${gwas_id}/"
+    sgl_gwas_dir="${sgl_dir}/${gwas_id}/m_loops/"
 
     # cycle through loop data
     echo "# cycle through loop"
@@ -89,7 +88,7 @@ do
 
         echo "loop_sample: ${loop_sample}"
         
-        loop_fn="results/hg38/loops/hichip/chip-seq/macs2/stringent/${loop_sample}.5000.raw.loops.bed"
+        loop_fn="results/hg38/loops/hichip/chip-seq/macs2/stringent/m_loops/${loop_sample}.5000.raw.loops.bed"
         output_fn="${sgl_gwas_dir}/${loop_sample}.5000.finemap_sgls.tsv"
 
         if [[ -f $loop_fn ]];
