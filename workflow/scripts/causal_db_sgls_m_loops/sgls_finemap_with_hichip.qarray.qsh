@@ -1,0 +1,86 @@
+#!/bin/bash
+#SBATCH --job-name=sgls_finemap_with_hichip.causal_db
+#SBATCH --nodes=1
+#SBATCH --mem=8gb
+#SBATCH --time=100:00:00
+#SBATCH --error=results/hg38/finemapping/sgls/logs/sgls_finemap_with_hichip.causal_db_%A_%a.out
+#SBATCH --output=results/hg38/finemapping/sgls/logs/sgls_finemap_with_hichip.causal_db_%A_%a.err
+
+# print start time message
+start_time=$(date "+%Y.%m.%d.%H.%M")
+echo "Start time: $start_time"
+
+# print start message
+echo "Started: sgls_finemap_with_hichip"
+
+# # run bash in strict mode
+set -euo pipefail
+IFS=$'\n\t'
+
+# dummy value when not running with sbatch
+echo
+if [[ -z ${SLURM_ARRAY_TASK_ID+x} ]]
+then
+    echo "Running with bash, setting SLURM_ARRAY_TASK_ID=\$1=$1"
+    samplesheet=$1
+    SLURM_ARRAY_TASK_ID=$2
+else
+    echo "Running with sbatch, SLURM_ARRAY_TASK_ID=$SLURM_ARRAY_TASK_ID"
+fi
+echo
+
+# getting the sample params
+curr_idx=$(expr $SLURM_ARRAY_TASK_ID + $offset)
+sample_params=( $(sed -n "${curr_idx}p" $samplesheet ) )
+gwas_fn=${sample_params[0]}
+loop_fn=${sample_params[1]}
+sgl_fn=${sample_params[2]}
+
+# decided whether to rerun
+if [ -f $sgl_fn ];
+then
+    echo "Exiting. This analysis has already been completed for ${sgl_fn}."
+    exit
+else
+    echo "Running. This analysis has not been completed for ${sgl_fn}."
+fi
+
+# make the sgl dir
+mkdir -p $(dirname $sgl_fn)
+
+# set global params
+gene_coords="results/hg38/refs/gencode/v30/gencode.v30.annotation.bed"
+res=5000
+
+# test="true"
+# if [[ "$test" == "true" ]]
+# then
+#     echo "Running in test mode"
+
+#     # Define the paths to the required input files
+#     gwas_fn="results/hg38/external_studies/chiou_2021/processing/finemapping/hg38.finemapping.basic.bed"
+#     loop_fn="results/hg38/loops/hichip/chip-seq/macs2/loose/Jurkat.GSE99519.Homo_Sapiens.YY1.b1.25000.interactions_FitHiC_Q0.01.bed"
+#     gene_coords="results/hg38/refs/gencode/v30/gencode.v30.annotation.bed"
+#     prefix="results/hg38/finemapping/sgls/Jurkat.GSE99519.Homo_Sapiens.YY1.b1/Jurkat.GSE99519.Homo_Sapiens.YY1.b1.25000."
+#     res=5000
+# fi
+
+# load helper functions and paths
+source workflow/scripts/helper_functions.sh
+
+# Define the path to bedtools
+bedtools_path=$(dirname $bedtools)
+
+# Run the Python script with the specified arguments
+cmd="$hichip_db_py workflow/scripts/causal_db_sgls/sgls_finemap_with_hichip.py \
+    --gwas $gwas_fn \
+    --loop $loop_fn \
+    --gene-coords $gene_coords \
+    --output $sgl_fn \
+    --res 5000 \
+    --bedtools-path $bedtools_path"
+echo "Running: $cmd"
+eval $cmd
+
+start_time=$(date "+%Y.%m.%d.%H.%M")
+echo "End time: $start_time"
