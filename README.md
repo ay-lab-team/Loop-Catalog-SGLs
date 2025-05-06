@@ -6,7 +6,7 @@ for Psoriasis, Type 1 Diabetes, Rheumatoid Arthritis, and Atopic Dermatitis. To 
 ## To Run:
 The working directory for this pipeline is considered: `workflow/qscripts/finemap/causal_db`
 
-In some cases you have to run scripts from the project directory: `/mnt/BioHome/jreyna/jreyna-temp/projects/t1d-loop-catalog`
+In some cases you have to run scripts from the project directory.
 
 ### Setup the data 
 The Loop Catalog has attempted to classify the organ of samples. All
@@ -23,7 +23,7 @@ results/samplesheets/sgls/<batch>/loopcatalog.immune_select_samples.txt
 2) Symlink the LJI-LCSD for Access to Loops # COMPLETED
 ```
 # biomerged will also be located here with proper symlinking
-ln -s /mnt/BioAdHoc/Groups/vd-ay/hichip-db-loop-calling/results/lji_lcsd_hub/release-0.1/hub/hg38/loops results/hg38/
+ln -s <symlink loop dir> results/hg38/
 ```
 
 ### Process the CAUSALdb fine-mapping studies

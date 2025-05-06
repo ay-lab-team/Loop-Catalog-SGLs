@@ -6,7 +6,7 @@ workflow/scripts/causal_db_sgls
 
 In some cases you have to run scripts from the project directory:
 ```
-/mnt/BioHome/jreyna/jreyna/projects/Loop-Catalog-SGLs
+<project-dir>
 ```
 
 
@@ -30,7 +30,7 @@ results/samplesheets/finemap_sgls/
 
 Symlink the loopcatalog storage drive for access to loop data: (DONE)
 ```
-ln -s /mnt/BioAdHoc/Groups/vd-ay/hichip-db-loop-calling/results/loopcatalog/release-0.1/hub/hg38/loops results/hg38/
+ln -s <loop-dir> results/hg38/
 ```
 
 

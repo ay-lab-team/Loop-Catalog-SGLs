@@ -62,7 +62,7 @@ sgl_samplesheet="results/samplesheets/causal_db_sgls/sgls_finemap_with_hichip.sa
 truncate -s 0 $sgl_samplesheet
 
 # cycle through gwas data
-lji_causaldb_dir="/mnt/BioAdHoc/Groups/vd-ay/jreyna/projects/Loop-Catalog-SGLs/"
+lji_causaldb_dir="<project-dir>"
 sgl_dir="results/hg38/finemapping/sgls/"
 while IFS= read -r gwas_sample
 do
